@@ -20,11 +20,17 @@ export type {
 } from "./scan.js";
 export {
   scannerSafetyEvaluationSchema,
+  scannerFailedRequestSchema,
+  scannerResultSchema,
+  scannerRunFailureCodeSchema,
   scannerSecurityFailureCodeSchema,
   scannerValidationRequestSchema,
 } from "./scanner.js";
 export type {
   ScannerSafetyEvaluation,
+  ScannerFailedRequest,
+  ScannerResult,
+  ScannerRunFailureCode,
   ScannerSecurityFailureCode,
   ScannerValidationRequest,
 } from "./scanner.js";

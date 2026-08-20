@@ -29,3 +29,26 @@ export class ScannerSecurityError extends Error {
     this.causeCode = options?.causeCode;
   }
 }
+
+export const scannerRunFailureCodes = [
+  "UNSAFE_TARGET",
+  "DNS_FAILURE",
+  "NAVIGATION_TIMEOUT",
+  "NAVIGATION_FAILED",
+  "REQUEST_LIMIT_EXCEEDED",
+  "JOB_TIMEOUT",
+  "BROWSER_LAUNCH_FAILED",
+  "BROWSER_CRASHED",
+] as const;
+
+export type ScannerRunFailureCode = (typeof scannerRunFailureCodes)[number];
+
+export class ScannerExecutionError extends Error {
+  readonly code: ScannerRunFailureCode;
+
+  constructor(code: ScannerRunFailureCode, message: string) {
+    super(message);
+    this.name = "ScannerExecutionError";
+    this.code = code;
+  }
+}

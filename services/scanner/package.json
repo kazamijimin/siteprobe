@@ -4,11 +4,13 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "install-browser": "playwright install chromium",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run"
   },
   "dependencies": {
     "@siteprobe/contracts": "workspace:*",
+    "playwright": "1.62.1",
     "zod": "^4.0.0"
   },
   "devDependencies": {
