@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useRouter, type Href } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { createScan } from '@/features/scans/scan-api';
 import { getUserFacingErrorMessage } from '@/services/api/errors';
 
@@ -96,7 +96,7 @@ export default function HomeScreen() {
           <Pressable
             accessibilityLabel="View Scan History"
             accessibilityRole="button"
-            onPress={() => router.push({ pathname: '/scans' } as unknown as Href)}
+            onPress={() => router.push('/scans')}
             style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}>
             <Text style={styles.secondaryButtonText}>View Scan History</Text>
           </Pressable>

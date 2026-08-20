@@ -143,6 +143,101 @@ describe("SiteProbe fake API", () => {
     });
   });
 
+  it("searches both stored URL forms with literal case-insensitive matching", async () => {
+    const repository = new InMemoryScanRepository();
+    const matchingScan = {
+      id: "00000000-0000-4000-8000-000000000011",
+      url: "https://canonical.example/path",
+      status: "completed" as const,
+      score: 87,
+      summary: { critical: 2, warnings: 6, passed: 31 },
+      createdAt: "2026-08-21T00:00:00.000Z",
+      completedAt: "2026-08-21T00:00:00.100Z",
+    };
+    const literalScan = {
+      id: "00000000-0000-4000-8000-000000000012",
+      url: "https://literal.example/percent%value_under_score",
+      status: "completed" as const,
+      score: 87,
+      summary: { critical: 2, warnings: 6, passed: 31 },
+      createdAt: "2026-08-20T00:00:00.000Z",
+      completedAt: "2026-08-20T00:00:00.100Z",
+    };
+    repository.create(matchingScan, "HTTPS://Requested.Example/original");
+    repository.create(literalScan, "https://literal.example/back\\slash");
+
+    const app = buildApp({ repository });
+    apps.push(app);
+
+    const normalizedMatch = await app.inject({ method: "GET", url: "/api/scans?q=CANONICAL.EXAMPLE" });
+    expect(normalizedMatch.statusCode).toBe(200);
+    expect(normalizedMatch.json().items.map((scan: { id: string }) => scan.id)).toEqual([matchingScan.id]);
+
+    const requestedMatch = await app.inject({ method: "GET", url: "/api/scans?q=requested.example" });
+    expect(requestedMatch.statusCode).toBe(200);
+    expect(requestedMatch.json().items.map((scan: { id: string }) => scan.id)).toEqual([matchingScan.id]);
+
+    const percentMatch = await app.inject({ method: "GET", url: "/api/scans?q=%25" });
+    expect(percentMatch.statusCode).toBe(200);
+    expect(percentMatch.json().items.map((scan: { id: string }) => scan.id)).toEqual([literalScan.id]);
+
+    const underscoreMatch = await app.inject({ method: "GET", url: "/api/scans?q=_" });
+    expect(underscoreMatch.statusCode).toBe(200);
+    expect(underscoreMatch.json().items.map((scan: { id: string }) => scan.id)).toEqual([literalScan.id]);
+
+    const backslashMatch = await app.inject({ method: "GET", url: "/api/scans?q=%5C" });
+    expect(backslashMatch.statusCode).toBe(200);
+    expect(backslashMatch.json().items.map((scan: { id: string }) => scan.id)).toEqual([literalScan.id]);
+
+    const noMatch = await app.inject({ method: "GET", url: "/api/scans?q=does-not-exist" });
+    expect(noMatch.statusCode).toBe(200);
+    expect(noMatch.json()).toEqual({ items: [], nextCursor: null });
+  });
+
+  it("keeps searched cursor pagination stable and rejects a mismatched query", async () => {
+    const repository = new InMemoryScanRepository();
+    const records = [
+      "00000000-0000-4000-8000-000000000021",
+      "00000000-0000-4000-8000-000000000022",
+      "00000000-0000-4000-8000-000000000023",
+    ].map((id) => ({
+      id,
+      url: `https://example.com/${id.slice(-2)}`,
+      status: "completed" as const,
+      score: 87,
+      summary: { critical: 2, warnings: 6, passed: 31 },
+      createdAt: "2026-08-21T00:00:00.000Z",
+      completedAt: "2026-08-21T00:00:00.100Z",
+    }));
+    for (const record of records) {
+      repository.create(record);
+    }
+
+    const app = buildApp({ repository });
+    apps.push(app);
+    const first = await app.inject({ method: "GET", url: "/api/scans?limit=1&q=Example" });
+    expect(first.statusCode).toBe(200);
+    const firstPage = listScansResponseSchema.parse(first.json());
+    expect(firstPage.items.map((scan) => scan.id)).toEqual([records[2].id]);
+    expect(firstPage.nextCursor).toBeTruthy();
+
+    const second = await app.inject({
+      method: "GET",
+      url: `/api/scans?limit=1&q=Example&cursor=${encodeURIComponent(firstPage.nextCursor!)}`,
+    });
+    expect(second.statusCode).toBe(200);
+    expect(listScansResponseSchema.parse(second.json()).items.map((scan) => scan.id)).toEqual([records[1].id]);
+
+    const mismatch = await app.inject({
+      method: "GET",
+      url: `/api/scans?limit=1&q=other&cursor=${encodeURIComponent(firstPage.nextCursor!)}`,
+    });
+    expect(mismatch.statusCode).toBe(400);
+    expect(errorEnvelopeSchema.parse(mismatch.json()).error.details).toEqual([
+      { path: "cursor", message: "Cursor does not match the current search query" },
+    ]);
+  });
+
   it("returns an empty history page and validates list queries", async () => {
     const app = testApp();
     const empty = await app.inject({ method: "GET", url: "/api/scans" });
@@ -156,6 +251,9 @@ describe("SiteProbe fake API", () => {
       "/api/scans?limit=not-a-number",
       "/api/scans?limit=20&limit=21",
       "/api/scans?unexpected=value",
+      "/api/scans?q=a%00b",
+      `/api/scans?q=${"a".repeat(201)}`,
+      "/api/scans?q=one&q=two",
       "/api/scans?cursor=not-valid!!",
     ]) {
       const response = await app.inject({ method: "GET", url });
@@ -175,7 +273,7 @@ describe("SiteProbe fake API", () => {
       },
     });
     apps.push(app);
-    const response = await app.inject({ method: "GET", url: "/api/scans" });
+    const response = await app.inject({ method: "GET", url: "/api/scans?q=example" });
     expect(response.statusCode).toBe(200);
     expect(calls).toBe(0);
   });

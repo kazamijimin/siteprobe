@@ -5,6 +5,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
@@ -20,10 +21,14 @@ import { getUserFacingErrorMessage } from '@/services/api/errors';
 
 const PAGE_SIZE = 20;
 
-type HistoryState =
-  | { status: 'loading'; items: ScanResponse[]; nextCursor: null; loadingMore: false; loadMoreError: null }
-  | { status: 'error'; items: ScanResponse[]; nextCursor: null; loadingMore: false; loadMoreError: null; message: string }
-  | { status: 'success'; items: ScanResponse[]; nextCursor: string | null; loadingMore: boolean; loadMoreError: string | null };
+type HistoryState = {
+  status: 'loading' | 'searching' | 'error' | 'success';
+  items: ScanResponse[];
+  nextCursor: string | null;
+  loadingMore: boolean;
+  loadMoreError: string | null;
+  message?: string;
+};
 
 const initialState: HistoryState = {
   status: 'loading',
@@ -33,15 +38,81 @@ const initialState: HistoryState = {
   loadMoreError: null,
 };
 
+function normalizedQuery(value: string): string | undefined {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
 export default function ScanHistoryScreen() {
   const router = useRouter();
   const [state, setState] = useState<HistoryState>(initialState);
+  const [draftQuery, setDraftQuery] = useState('');
+  const [activeQuery, setActiveQuery] = useState<string | undefined>(undefined);
   const [retryCount, setRetryCount] = useState(0);
   const controllers = useRef(new Set<AbortController>());
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const generationRef = useRef(0);
+  const activeQueryRef = useRef<string | undefined>(undefined);
+
+  function abortRequests() {
+    for (const controller of controllers.current) {
+      controller.abort();
+    }
+    controllers.current.clear();
+  }
+
+  function invalidateSearchState() {
+    generationRef.current += 1;
+    abortRequests();
+    setState({
+      status: 'searching',
+      items: [],
+      nextCursor: null,
+      loadingMore: false,
+      loadMoreError: null,
+    });
+  }
+
+  function commitSearch(value: string) {
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+      debounceTimer.current = null;
+    }
+
+    const query = normalizedQuery(value);
+    setDraftQuery(value);
+    invalidateSearchState();
+    if (activeQueryRef.current === query) {
+      setRetryCount((count) => count + 1);
+    } else {
+      setActiveQuery(query);
+    }
+  }
+
+  function handleQueryChange(value: string) {
+    setDraftQuery(value);
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+
+    invalidateSearchState();
+    debounceTimer.current = setTimeout(() => {
+      debounceTimer.current = null;
+      const query = normalizedQuery(value);
+      if (activeQueryRef.current === query) {
+        setRetryCount((count) => count + 1);
+      } else {
+        setActiveQuery(query);
+      }
+    }, 400);
+  }
 
   useEffect(() => {
     const activeControllers = controllers.current;
     return () => {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
       for (const controller of activeControllers) {
         controller.abort();
       }
@@ -50,14 +121,30 @@ export default function ScanHistoryScreen() {
   }, []);
 
   useEffect(() => {
-    const activeControllers = controllers.current;
-    const controller = new AbortController();
-    activeControllers.add(controller);
-    setState(initialState);
+    const requestGeneration = ++generationRef.current;
+    const query = activeQuery;
+    activeQueryRef.current = query;
+    abortRequests();
 
-    void listScans({ limit: PAGE_SIZE, signal: controller.signal })
+    const controller = new AbortController();
+    controllers.current.add(controller);
+    setState({
+      status: query ? 'searching' : 'loading',
+      items: [],
+      nextCursor: null,
+      loadingMore: false,
+      loadMoreError: null,
+    });
+
+    void listScans({ limit: PAGE_SIZE, query, signal: controller.signal })
       .then((page) => {
-        if (controller.signal.aborted) return;
+        if (
+          controller.signal.aborted
+          || requestGeneration !== generationRef.current
+          || activeQueryRef.current !== query
+        ) {
+          return;
+        }
         setState({
           status: 'success',
           items: page.items,
@@ -67,7 +154,13 @@ export default function ScanHistoryScreen() {
         });
       })
       .catch((error: unknown) => {
-        if (controller.signal.aborted) return;
+        if (
+          controller.signal.aborted
+          || requestGeneration !== generationRef.current
+          || activeQueryRef.current !== query
+        ) {
+          return;
+        }
         setState({
           status: 'error',
           items: [],
@@ -77,13 +170,10 @@ export default function ScanHistoryScreen() {
           message: getUserFacingErrorMessage(error),
         });
       })
-      .finally(() => activeControllers.delete(controller));
+      .finally(() => controllers.current.delete(controller));
 
-    return () => {
-      controller.abort();
-      activeControllers.delete(controller);
-    };
-  }, [retryCount]);
+    return () => controller.abort();
+  }, [activeQuery, retryCount]);
 
   async function loadMore() {
     if (state.status !== 'success' || state.loadingMore || !state.nextCursor) {
@@ -91,6 +181,8 @@ export default function ScanHistoryScreen() {
     }
 
     const cursor = state.nextCursor;
+    const query = activeQueryRef.current;
+    const requestGeneration = generationRef.current;
     const controller = new AbortController();
     controllers.current.add(controller);
     setState((current) => current.status === 'success'
@@ -98,8 +190,19 @@ export default function ScanHistoryScreen() {
       : current);
 
     try {
-      const page = await listScans({ limit: PAGE_SIZE, cursor, signal: controller.signal });
-      if (controller.signal.aborted) return;
+      const page = await listScans({
+        limit: PAGE_SIZE,
+        cursor,
+        query,
+        signal: controller.signal,
+      });
+      if (
+        controller.signal.aborted
+        || requestGeneration !== generationRef.current
+        || activeQueryRef.current !== query
+      ) {
+        return;
+      }
       setState((current) => {
         if (current.status !== 'success') return current;
         const existingIds = new Set(current.items.map((scan) => scan.id));
@@ -113,7 +216,13 @@ export default function ScanHistoryScreen() {
         };
       });
     } catch (error: unknown) {
-      if (controller.signal.aborted) return;
+      if (
+        controller.signal.aborted
+        || requestGeneration !== generationRef.current
+        || activeQueryRef.current !== query
+      ) {
+        return;
+      }
       setState((current) => current.status === 'success'
         ? { ...current, loadingMore: false, loadMoreError: getUserFacingErrorMessage(error) }
         : current);
@@ -126,29 +235,33 @@ export default function ScanHistoryScreen() {
     router.replace('/');
   }
 
-  if (state.status === 'loading') {
-    return (
-      <View style={styles.container}>
-        <Stack.Screen options={{ title: 'Scan History' }} />
-        <View accessibilityLiveRegion="polite" style={styles.centerContent}>
-          <ActivityIndicator color="#2563EB" size="large" />
-          <Text accessibilityRole="header" style={styles.title}>Loading scan history...</Text>
-        </View>
-      </View>
-    );
+  function retry() {
+    invalidateSearchState();
+    setRetryCount((count) => count + 1);
   }
 
-  if (state.status === 'error') {
-    return (
-      <View style={styles.container}>
-        <Stack.Screen options={{ title: 'Scan History' }} />
+  function renderEmptyState() {
+    if (state.status === 'loading' || state.status === 'searching') {
+      const message = state.status === 'searching' ? 'Searching scan history...' : 'Loading scan history...';
+      return (
+        <View accessibilityLiveRegion="polite" style={styles.centerContent}>
+          <ActivityIndicator color="#2563EB" size="large" />
+          <Text accessibilityRole="header" style={styles.title}>{message}</Text>
+        </View>
+      );
+    }
+
+    if (state.status === 'error') {
+      return (
         <View style={styles.centerContent}>
-          <Text accessibilityRole="header" style={styles.title}>Unable to load scan history.</Text>
+          <Text accessibilityRole="header" style={styles.title}>
+            {activeQueryRef.current ? 'Unable to search scan history.' : 'Unable to load scan history.'}
+          </Text>
           <Text accessibilityLiveRegion="polite" style={styles.message}>{state.message}</Text>
           <Pressable
             accessibilityLabel="Retry loading scan history"
             accessibilityRole="button"
-            onPress={() => setRetryCount((count) => count + 1)}
+            onPress={retry}
             style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}>
             <Text style={styles.buttonText}>Retry</Text>
           </Pressable>
@@ -160,6 +273,37 @@ export default function ScanHistoryScreen() {
             <Text style={styles.secondaryButtonText}>Back to Home</Text>
           </Pressable>
         </View>
+      );
+    }
+
+    if (activeQueryRef.current) {
+      return (
+        <View accessibilityLiveRegion="polite" style={styles.emptyState}>
+          <Text accessibilityRole="header" style={styles.emptyTitle}>
+            No scans found for &quot;{activeQueryRef.current}&quot;.
+          </Text>
+          <Pressable
+            accessibilityLabel="Clear search"
+            accessibilityRole="button"
+            onPress={() => commitSearch('')}
+            style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}>
+            <Text style={styles.secondaryButtonText}>Clear search</Text>
+          </Pressable>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.emptyState}>
+        <Text accessibilityRole="header" style={styles.emptyTitle}>No scans yet.</Text>
+        <Text style={styles.message}>Run your first SiteProbe scan from Home.</Text>
+        <Pressable
+          accessibilityLabel="Back to Home"
+          accessibilityRole="button"
+          onPress={goHome}
+          style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}>
+          <Text style={styles.buttonText}>Back to Home</Text>
+        </Pressable>
       </View>
     );
   }
@@ -171,23 +315,11 @@ export default function ScanHistoryScreen() {
         contentContainerStyle={styles.listContent}
         data={state.items}
         keyExtractor={(item) => item.id}
-        ListEmptyComponent={(
-          <View style={styles.emptyState}>
-            <Text accessibilityRole="header" style={styles.emptyTitle}>No scans yet.</Text>
-            <Text style={styles.message}>Run your first SiteProbe scan from Home.</Text>
-            <Pressable
-              accessibilityLabel="Back to Home"
-              accessibilityRole="button"
-              onPress={goHome}
-              style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}>
-              <Text style={styles.buttonText}>Back to Home</Text>
-            </Pressable>
-          </View>
-        )}
-        ListFooterComponent={state.nextCursor ? (
+        ListEmptyComponent={renderEmptyState()}
+        ListFooterComponent={state.status === 'success' && state.nextCursor ? (
           <View style={styles.footer}>
             {state.loadMoreError ? (
-              <Text accessibilityLiveRegion="polite" style={styles.error}>{state.loadMoreError}</Text>
+              <Text accessibilityLiveRegion="polite" style={styles.error}>Unable to load more scans.</Text>
             ) : null}
             <Pressable
               accessibilityLabel={state.loadingMore ? 'Loading more scans' : 'Load more scans'}
@@ -207,6 +339,34 @@ export default function ScanHistoryScreen() {
             <Text style={styles.notice}>
               Current scan results use synthetic QA data while the real scanner remains in controlled development.
             </Text>
+            <Text nativeID="scan-history-search-label" style={styles.label}>Search scan history</Text>
+            <View style={styles.searchRow}>
+              <TextInput
+                accessibilityLabel="Search scan history"
+                accessibilityHint="Search previously scanned websites"
+                accessibilityLabelledBy="scan-history-search-label"
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="url"
+                maxLength={200}
+                onChangeText={handleQueryChange}
+                onSubmitEditing={() => commitSearch(draftQuery)}
+                placeholder="Search websites..."
+                placeholderTextColor="#718096"
+                returnKeyType="search"
+                style={styles.searchInput}
+                value={draftQuery}
+              />
+              {draftQuery.length > 0 ? (
+                <Pressable
+                  accessibilityLabel="Clear search"
+                  accessibilityRole="button"
+                  onPress={() => commitSearch('')}
+                  style={({ pressed }) => [styles.clearButton, pressed && styles.buttonPressed]}>
+                  <Text style={styles.clearButtonText}>Clear</Text>
+                </Pressable>
+              ) : null}
+            </View>
           </View>
         )}
         renderItem={({ item }) => {
@@ -241,9 +401,14 @@ export default function ScanHistoryScreen() {
 const styles = StyleSheet.create({
   container: { backgroundColor: '#F7FAFC', flex: 1 },
   listContent: { padding: 24, paddingBottom: 40 },
-  centerContent: { flex: 1, justifyContent: 'center', padding: 24 },
+  centerContent: { alignItems: 'center', justifyContent: 'center', minHeight: 280, padding: 24 },
   title: { color: '#1A202C', fontSize: 30, fontWeight: '700' },
+  label: { color: '#2D3748', fontSize: 16, fontWeight: '600', marginTop: 28, marginBottom: 10 },
   notice: { color: '#744210', fontSize: 14, lineHeight: 21, marginTop: 16 },
+  searchRow: { alignItems: 'stretch', flexDirection: 'row', width: '100%' },
+  searchInput: { backgroundColor: '#FFFFFF', borderColor: '#CBD5E0', borderRadius: 10, borderWidth: 1, color: '#1A202C', flex: 1, fontSize: 16, minHeight: 52, paddingHorizontal: 16 },
+  clearButton: { alignItems: 'center', borderColor: '#2563EB', borderRadius: 10, borderWidth: 1, justifyContent: 'center', marginLeft: 8, minHeight: 52, paddingHorizontal: 16 },
+  clearButtonText: { color: '#2563EB', fontSize: 16, fontWeight: '700' },
   card: { backgroundColor: '#FFFFFF', borderColor: '#CBD5E0', borderRadius: 12, borderWidth: 1, marginTop: 16, padding: 18 },
   cardPressed: { opacity: 0.8 },
   hostname: { color: '#1A202C', fontSize: 20, fontWeight: '700' },
@@ -255,7 +420,7 @@ const styles = StyleSheet.create({
   timestamp: { color: '#4A5568', fontSize: 14, marginTop: 12 },
   message: { color: '#4A5568', fontSize: 16, lineHeight: 24, marginTop: 18 },
   emptyState: { alignItems: 'center', paddingVertical: 48 },
-  emptyTitle: { color: '#1A202C', fontSize: 22, fontWeight: '700' },
+  emptyTitle: { color: '#1A202C', fontSize: 22, fontWeight: '700', textAlign: 'center' },
   footer: { paddingTop: 20 },
   error: { color: '#C53030', fontSize: 14, lineHeight: 21, marginBottom: 8 },
   button: { alignItems: 'center', backgroundColor: '#2563EB', borderRadius: 10, justifyContent: 'center', marginTop: 28, minHeight: 52, paddingHorizontal: 20 },

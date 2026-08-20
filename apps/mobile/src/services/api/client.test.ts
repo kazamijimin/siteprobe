@@ -81,6 +81,24 @@ describe('mobile API configuration and client', () => {
     expect(fetchMock.mock.calls[1][0]).toBe('http://127.0.0.1:3000/api/scans?limit=50&cursor=abc_-123');
   });
 
+  it('encodes history search queries and omits empty queries', async () => {
+    process.env.EXPO_PUBLIC_API_URL = 'http://127.0.0.1:3000';
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => historyFixture,
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(listScans({ query: '  Example.com  ' })).resolves.toEqual(historyFixture);
+    await expect(listScans({ limit: 50, cursor: 'abc_-123', query: 'a%b_c\\d' })).resolves.toEqual(historyFixture);
+    await expect(listScans({ query: '   ' })).resolves.toEqual(historyFixture);
+
+    expect(fetchMock.mock.calls[0][0]).toBe('http://127.0.0.1:3000/api/scans?limit=20&q=Example.com');
+    expect(fetchMock.mock.calls[1][0]).toBe('http://127.0.0.1:3000/api/scans?limit=50&cursor=abc_-123&q=a%25b_c%5Cd');
+    expect(fetchMock.mock.calls[2][0]).toBe('http://127.0.0.1:3000/api/scans?limit=20');
+  });
+
   it('rejects malformed history responses and preserves cancellation behavior', async () => {
     process.env.EXPO_PUBLIC_API_URL = 'http://127.0.0.1:3000';
     const fetchMock = vi.fn()

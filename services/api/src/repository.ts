@@ -1,4 +1,4 @@
-import { and, desc, eq, lt, or } from "drizzle-orm";
+import { and, desc, eq, ilike, lt, or } from "drizzle-orm";
 import { scanResponseSchema, type ScanResponse } from "@siteprobe/contracts";
 import type { SiteProbeDatabase } from "./db/client.js";
 import { scans, type ScanRow } from "./db/schema.js";
@@ -17,6 +17,7 @@ export type ScanListPosition = {
 export type ListScansOptions = {
   limit: number;
   before?: ScanListPosition;
+  query?: string;
 };
 
 export type ScanListPage = {
@@ -52,20 +53,48 @@ function pageFromItems(items: ScanResponse[], limit: number): ScanListPage {
   };
 }
 
-export class InMemoryScanRepository implements ScanRepository {
-  private readonly scans = new Map<string, ScanResponse>();
+function matchesQuery(value: string, query: string): boolean {
+  return value.toLowerCase().includes(query.toLowerCase());
+}
 
-  create(scan: ScanResponse): ScanResponse {
-    this.scans.set(scan.id, scan);
+function escapeLikePattern(query: string): string {
+  return query.replace(/[\\%_]/g, "\\$&");
+}
+
+function searchPredicate(query: string) {
+  const pattern = `%${escapeLikePattern(query)}%`;
+  return or(
+    ilike(scans.normalizedUrl, pattern),
+    ilike(scans.requestedUrl, pattern),
+  );
+}
+
+type StoredScan = {
+  scan: ScanResponse;
+  requestedUrl: string;
+};
+
+export class InMemoryScanRepository implements ScanRepository {
+  private readonly scans = new Map<string, StoredScan>();
+
+  create(scan: ScanResponse, requestedUrl = scan.url): ScanResponse {
+    this.scans.set(scan.id, { scan, requestedUrl });
     return scan;
   }
 
   findById(id: string): ScanResponse | undefined {
-    return this.scans.get(id);
+    return this.scans.get(id)?.scan;
   }
 
   list(options: ListScansOptions): ScanListPage {
     const items = [...this.scans.values()]
+      .filter(({ scan, requestedUrl }) => {
+        if (!options.query) {
+          return true;
+        }
+        return matchesQuery(scan.url, options.query) || matchesQuery(requestedUrl, options.query);
+      })
+      .map(({ scan }) => scan)
       .filter((scan) => !options.before || isBeforeCursor(scan, options.before))
       .sort(compareScans);
     return pageFromItems(items, options.limit);
@@ -125,10 +154,11 @@ export class PostgresScanRepository implements ScanRepository {
         and(eq(scans.createdAt, cursorDate), lt(scans.id, cursor.id)),
       )
       : undefined;
+    const queryFilter = options.query ? searchPredicate(options.query) : undefined;
     const rows = await this.db
       .select()
       .from(scans)
-      .where(cursorFilter)
+      .where(and(cursorFilter, queryFilter))
       .orderBy(desc(scans.createdAt), desc(scans.id))
       .limit(options.limit + 1);
 

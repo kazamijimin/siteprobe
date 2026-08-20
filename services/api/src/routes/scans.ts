@@ -9,7 +9,7 @@ import {
   type ErrorDetail,
 } from "@siteprobe/contracts";
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { ZodError } from "zod";
 import type { ScanListPosition, ScanRepository } from "../repository.js";
 
@@ -69,15 +69,26 @@ function requestedUrlFromBody(body: unknown, normalizedUrl: string): string {
   return normalizedUrl;
 }
 
-function encodeCursor(position: ScanListPosition): string {
-  return scanCursorSchema.parse(Buffer.from(JSON.stringify({ v: 1, ...position }), "utf8").toString("base64url"));
+function hashQuery(query: string): string {
+  return createHash("sha256").update(query, "utf8").digest("base64url");
 }
 
-function decodeCursor(cursor: string): ScanListPosition {
+function encodeCursor(position: ScanListPosition, query?: string): string {
+  const payload = {
+    v: 1 as const,
+    ...position,
+    ...(query ? { queryHash: hashQuery(query) } : {}),
+  };
+  return scanCursorSchema.parse(Buffer.from(JSON.stringify(payload), "utf8").toString("base64url"));
+}
+
+type DecodedCursor = ScanListPosition & { queryHash?: string };
+
+function decodeCursor(cursor: string): DecodedCursor {
   const payload = scanCursorPayloadSchema.parse(
     JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")) as unknown,
   );
-  return { createdAt: payload.createdAt, id: payload.id };
+  return { createdAt: payload.createdAt, id: payload.id, queryHash: payload.queryHash };
 }
 
 export function scanRoutes(repository: ScanRepository): FastifyPluginAsync {
@@ -112,9 +123,12 @@ export function scanRoutes(repository: ScanRepository): FastifyPluginAsync {
       }
 
       let before: ScanListPosition | undefined;
+      let cursorQueryHash: string | undefined;
       if (queryResult.data.cursor) {
         try {
-          before = decodeCursor(queryResult.data.cursor);
+          const decoded = decodeCursor(queryResult.data.cursor);
+          before = { createdAt: decoded.createdAt, id: decoded.id };
+          cursorQueryHash = decoded.queryHash;
         } catch {
           sendError(request, reply, {
             code: "VALIDATION_ERROR",
@@ -125,10 +139,24 @@ export function scanRoutes(repository: ScanRepository): FastifyPluginAsync {
         }
       }
 
-      const page = await repository.list({ limit: queryResult.data.limit, before });
+      const expectedQueryHash = queryResult.data.q ? hashQuery(queryResult.data.q) : undefined;
+      if (cursorQueryHash !== expectedQueryHash && queryResult.data.cursor) {
+        sendError(request, reply, {
+          code: "VALIDATION_ERROR",
+          message: "Request validation failed",
+          details: [{ path: "cursor", message: "Cursor does not match the current search query" }],
+        }, 400);
+        return;
+      }
+
+      const page = await repository.list({
+        limit: queryResult.data.limit,
+        before,
+        query: queryResult.data.q,
+      });
       const response = listScansResponseSchema.parse({
         items: page.items,
-        nextCursor: page.nextPosition ? encodeCursor(page.nextPosition) : null,
+        nextCursor: page.nextPosition ? encodeCursor(page.nextPosition, queryResult.data.q) : null,
       });
       reply.send(response);
     });

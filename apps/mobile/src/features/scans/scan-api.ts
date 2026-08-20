@@ -23,6 +23,7 @@ export function getScan(id: string, signal?: AbortSignal): Promise<ScanResponse>
 export type ListScansOptions = {
   limit?: number;
   cursor?: string;
+  query?: string;
   signal?: AbortSignal;
 };
 
@@ -32,6 +33,10 @@ export function listScans(options: ListScansOptions = {}): Promise<ListScansResp
   });
   if (options.cursor) {
     params.set('cursor', options.cursor);
+  }
+  const query = options.query?.trim();
+  if (query) {
+    params.set('q', query);
   }
 
   return requestJson(`/api/scans?${params.toString()}`, listScansResponseSchema, {
