@@ -1,9 +1,9 @@
 # SiteProbe scanner safety boundary
 
-This package contains the application-level policy and the first controlled
-Playwright engine for accessing a user-supplied destination. The public API does
-not call this engine. DNS lookups are only used by the explicit security-policy
-API and are injectable in tests.
+This package contains the application-level policy, controlled Playwright engine,
+and private Fastify worker for accessing a user-supplied destination. The public
+API does not call this worker. DNS lookups are only used by the explicit
+security-policy API and are injectable in tests.
 
 The policy validates HTTP(S) URLs, rejects credentials and local names, classifies
 IPv4/IPv6 addresses (including IPv4-mapped IPv6), evaluates every DNS answer, and
@@ -15,9 +15,36 @@ request interception, navigation/job/request limits, popup/dialog/download/
 WebSocket restrictions, and permission denial are enforced by the scanner.
 Byte limits and network isolation are not.
 
-The scanner has no database dependency or database credentials. If a later phase
-adds an HTTP service, it must bind to `127.0.0.1` and use private authentication;
-this package intentionally has no HTTP endpoint yet.
+The scanner has no database dependency or database credentials. Its internal
+HTTP service binds to `127.0.0.1` by default and requires a server-only bearer
+token for `/internal/scans`. `/health` is liveness only; `/ready` reports whether
+unrestricted isolated execution is approved.
+
+## Controlled local validation
+
+From the repository root:
+
+```powershell
+pnpm install
+pnpm scanner:install-browser
+pnpm scanner:typecheck
+pnpm scanner:test
+```
+
+`scanner:install-browser` installs only the Chromium bundle required by
+Playwright. The tests use deterministic fixture routes and injected DNS; they do
+not contact arbitrary websites. The private worker is started with
+`pnpm scanner:dev` after configuring `services/scanner/.env`; controlled mode
+requires an exact hostname in `SCANNER_CONTROLLED_HOSTS`. There is no public
+scanner endpoint or production scan command.
+
+## Worker configuration
+
+Copy `.env.example` to `.env` and set a strong random `SCANNER_INTERNAL_TOKEN`.
+Keep `SCANNER_EXECUTION_MODE=controlled` for local development. Isolated mode
+fails closed unless every `SCANNER_CAP_*` capability is trusted as `verified` or
+`declared` by deployment configuration. These declarations do not prove that
+the current Windows machine is network-isolated.
 
 Application checks do not solve DNS rebinding or provide network isolation. A
 future scanner deployment needs an isolated, non-root execution environment with

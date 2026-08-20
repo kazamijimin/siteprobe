@@ -15,15 +15,30 @@ const environmentSchema = z.object({
         return false;
       }
     }, "DATABASE_URL must be a PostgreSQL connection URL"),
+  SCANNER_URL: z
+    .string()
+    .trim()
+    .url()
+    .refine((value) => value.startsWith("http://") || value.startsWith("https://"), "SCANNER_URL must use HTTP or HTTPS")
+    .default("http://127.0.0.1:3100"),
+  SCANNER_INTERNAL_TOKEN: z.string().trim().optional(),
 });
 
 export type ApiConfig = {
   host: string;
   port: number;
   databaseUrl: string;
+  scannerUrl: string;
+  scannerInternalToken: string | undefined;
 };
 
 export function loadConfig(environment: NodeJS.ProcessEnv = process.env): ApiConfig {
   const parsed = environmentSchema.parse(environment);
-  return { host: parsed.HOST, port: parsed.PORT, databaseUrl: parsed.DATABASE_URL };
+  return {
+    host: parsed.HOST,
+    port: parsed.PORT,
+    databaseUrl: parsed.DATABASE_URL,
+    scannerUrl: parsed.SCANNER_URL,
+    scannerInternalToken: parsed.SCANNER_INTERNAL_TOKEN || undefined,
+  };
 }

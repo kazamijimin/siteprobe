@@ -41,6 +41,44 @@ export const scannerRunFailureCodeSchema = z.enum([
 
 export type ScannerRunFailureCode = z.infer<typeof scannerRunFailureCodeSchema>;
 
+export const scannerInternalErrorCodeSchema = z.enum([
+  "UNAUTHORIZED",
+  "INVALID_REQUEST",
+  "ISOLATION_NOT_READY",
+  "CONTROLLED_TARGET_NOT_ALLOWED",
+  "SCANNER_BUSY",
+  "SCANNER_NOT_READY",
+  "UNSAFE_TARGET",
+  "DNS_FAILURE",
+  "NAVIGATION_FAILED",
+  "NAVIGATION_TIMEOUT",
+  "JOB_TIMEOUT",
+  "BROWSER_LAUNCH_FAILED",
+  "BROWSER_CRASHED",
+  "SCANNER_NOT_CONFIGURED",
+  "SCANNER_UNAVAILABLE",
+  "SCANNER_TIMEOUT",
+  "SCANNER_INVALID_RESPONSE",
+  "INTERNAL_ERROR",
+]);
+
+export type ScannerInternalErrorCode = z.infer<typeof scannerInternalErrorCodeSchema>;
+
+export const scannerInternalErrorEnvelopeSchema = z
+  .object({
+    error: z
+      .object({
+        code: scannerInternalErrorCodeSchema,
+        message: z.string().max(512),
+      })
+      .strict(),
+  })
+  .strict();
+
+export type ScannerInternalErrorEnvelope = z.infer<
+  typeof scannerInternalErrorEnvelopeSchema
+>;
+
 export const scannerSafetyEvaluationSchema = z
   .discriminatedUnion("allowed", [
     z.object({

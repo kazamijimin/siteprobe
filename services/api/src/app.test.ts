@@ -36,6 +36,26 @@ describe("SiteProbe fake API", () => {
     expect(scan.summary).toEqual({ critical: 2, warnings: 6, passed: 31 });
   });
 
+  it("does not invoke an injected scanner client from the public scan route", async () => {
+    let calls = 0;
+    const app = buildApp({
+      scannerClient: {
+        scan: async () => {
+          calls += 1;
+          throw new Error("public route must remain synthetic");
+        },
+      },
+    });
+    apps.push(app);
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/scans",
+      payload: { url: "https://example.com" },
+    });
+    expect(response.statusCode).toBe(201);
+    expect(calls).toBe(0);
+  });
+
   it("stores and retrieves a scan by UUID", async () => {
     const app = testApp();
     const created = await app.inject({
