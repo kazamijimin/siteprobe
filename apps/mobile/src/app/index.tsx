@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { createScan } from '@/features/scans/scan-api';
 import { getUserFacingErrorMessage } from '@/services/api/errors';
 
@@ -92,6 +92,14 @@ export default function HomeScreen() {
             {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : null}
             <Text style={styles.buttonText}>{isSubmitting ? 'Scanning...' : 'Scan Website'}</Text>
           </Pressable>
+
+          <Pressable
+            accessibilityLabel="View Scan History"
+            accessibilityRole="button"
+            onPress={() => router.push({ pathname: '/scans' } as unknown as Href)}
+            style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}>
+            <Text style={styles.secondaryButtonText}>View Scan History</Text>
+          </Pressable>
         </View>
       </View>
     </View>
@@ -163,6 +171,21 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  secondaryButton: {
+    alignItems: 'center',
+    borderColor: '#2563EB',
+    borderRadius: 10,
+    borderWidth: 1,
+    justifyContent: 'center',
+    marginTop: 16,
+    minHeight: 52,
+    paddingHorizontal: 20,
+  },
+  secondaryButtonText: {
+    color: '#2563EB',
     fontSize: 16,
     fontWeight: '700',
   },

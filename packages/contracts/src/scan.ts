@@ -101,6 +101,40 @@ export const scanResponseSchema = z
 
 export type ScanResponse = z.infer<typeof scanResponseSchema>;
 
+export const scanCursorSchema = z
+  .string()
+  .min(1)
+  .max(512)
+  .regex(/^[A-Za-z0-9_-]+$/, "Cursor must be a base64url value");
+
+export const scanCursorPayloadSchema = z
+  .object({
+    v: z.literal(1),
+    createdAt: z.string().datetime({ offset: true }),
+    id: z.string().uuid(),
+  })
+  .strict();
+
+export type ScanCursorPayload = z.infer<typeof scanCursorPayloadSchema>;
+
+export const listScansQuerySchema = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(50).default(20),
+    cursor: scanCursorSchema.optional(),
+  })
+  .strict();
+
+export type ListScansQuery = z.infer<typeof listScansQuerySchema>;
+
+export const listScansResponseSchema = z
+  .object({
+    items: z.array(scanResponseSchema).max(50),
+    nextCursor: scanCursorSchema.nullable(),
+  })
+  .strict();
+
+export type ListScansResponse = z.infer<typeof listScansResponseSchema>;
+
 export const scanIdParamsSchema = z
   .object({ id: z.string().uuid() })
   .strict();

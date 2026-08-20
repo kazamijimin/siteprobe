@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   createScanRequestSchema,
   errorEnvelopeSchema,
+  listScansQuerySchema,
+  listScansResponseSchema,
+  scanCursorPayloadSchema,
+  scanCursorSchema,
   scanResponseSchema,
 } from "./scan.js";
 
@@ -78,5 +82,45 @@ describe("scan contracts", () => {
     expect(() =>
       errorEnvelopeSchema.parse({ error: { code: "NOT_FOUND", message: "missing" } }),
     ).toThrow();
+  });
+
+  it("validates history query limits and strict fields", () => {
+    expect(listScansQuerySchema.parse({})).toEqual({ limit: 20 });
+    expect(listScansQuerySchema.parse({ limit: "1" }).limit).toBe(1);
+    expect(listScansQuerySchema.parse({ limit: "50" }).limit).toBe(50);
+    for (const limit of ["0", "51", "1.5", "not-a-number"]) {
+      expect(() => listScansQuerySchema.parse({ limit })).toThrow();
+    }
+    expect(() => listScansQuerySchema.parse({ unexpected: "value" })).toThrow();
+  });
+
+  it("validates cursor payloads and history responses", () => {
+    const payload = {
+      v: 1,
+      createdAt: "2026-08-20T00:00:00.000Z",
+      id: "00000000-0000-4000-8000-000000000000",
+    };
+    expect(scanCursorPayloadSchema.parse(payload)).toEqual(payload);
+    expect(scanCursorSchema.parse("abc_-123")).toBe("abc_-123");
+    expect(() => scanCursorSchema.parse("not-valid!")).toThrow();
+    expect(() => scanCursorSchema.parse(" abc_-123 ")).toThrow();
+    expect(() => scanCursorSchema.parse("a".repeat(513))).toThrow();
+    expect(() => scanCursorPayloadSchema.parse({ ...payload, v: 2 })).toThrow();
+    expect(() => scanCursorPayloadSchema.parse({ ...payload, id: "bad" })).toThrow();
+    expect(listScansResponseSchema.parse({ items: [], nextCursor: null })).toEqual({
+      items: [],
+      nextCursor: null,
+    });
+    expect(() => listScansResponseSchema.parse({ items: [{ id: "bad" }], nextCursor: null })).toThrow();
+    const validItem = {
+      id: "00000000-0000-4000-8000-000000000000",
+      url: "https://example.com/",
+      status: "completed",
+      score: 87,
+      summary: { critical: 2, warnings: 6, passed: 31 },
+      createdAt: "2026-08-20T00:00:00.000Z",
+      completedAt: "2026-08-20T00:00:00.100Z",
+    };
+    expect(() => listScansResponseSchema.parse({ items: Array.from({ length: 51 }, () => validItem), nextCursor: null })).toThrow();
   });
 });

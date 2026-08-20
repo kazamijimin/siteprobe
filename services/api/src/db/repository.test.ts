@@ -64,4 +64,53 @@ describeDatabase("PostgreSQL scan persistence", () => {
       connection.db.insert(scans).values({ ...base, id: randomUUID(), status: "unknown" as never }),
     ).rejects.toThrow();
   });
+
+  it("lists persisted scans with stable cursor pagination", async () => {
+    const records = [
+      {
+        id: randomUUID(),
+        url: "https://example.com/first",
+        status: "completed" as const,
+        score: 87,
+        summary: { critical: 2, warnings: 6, passed: 31 },
+        createdAt: "2099-08-20T00:00:00.000Z",
+        completedAt: "2099-08-20T00:00:00.100Z",
+      },
+      {
+        id: randomUUID(),
+        url: "https://example.com/second",
+        status: "completed" as const,
+        score: 87,
+        summary: { critical: 2, warnings: 6, passed: 31 },
+        createdAt: "2099-08-21T00:00:00.000Z",
+        completedAt: "2099-08-21T00:00:00.100Z",
+      },
+      {
+        id: randomUUID(),
+        url: "https://example.com/third",
+        status: "completed" as const,
+        score: 87,
+        summary: { critical: 2, warnings: 6, passed: 31 },
+        createdAt: "2099-08-22T00:00:00.000Z",
+        completedAt: "2099-08-22T00:00:00.100Z",
+      },
+    ];
+    for (const record of records) {
+      await repository.create(record);
+    }
+
+    const firstPage = await repository.list({ limit: 2 });
+    expect(firstPage.items.map((scan) => scan.url)).toEqual([
+      records[2].url,
+      records[1].url,
+    ]);
+    expect(firstPage.nextPosition).toEqual({
+      createdAt: records[1].createdAt,
+      id: records[1].id,
+    });
+
+    const secondPage = await repository.list({ limit: 2, before: firstPage.nextPosition! });
+    expect(secondPage.items.map((scan) => scan.url)).toEqual([records[0].url]);
+    expect(secondPage.nextPosition).toBeNull();
+  });
 });

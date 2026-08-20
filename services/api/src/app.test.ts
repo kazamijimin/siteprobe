@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
-import { errorEnvelopeSchema, scanResponseSchema } from "@siteprobe/contracts";
+import { errorEnvelopeSchema, listScansResponseSchema, scanResponseSchema } from "@siteprobe/contracts";
 import { buildApp } from "./app.js";
+import { InMemoryScanRepository } from "./repository.js";
 
 const apps: ReturnType<typeof buildApp>[] = [];
 
@@ -83,6 +84,100 @@ describe("SiteProbe fake API", () => {
     const response = await app.inject({ method: "GET", url: `/api/scans/${id}` });
     expect(response.statusCode).toBe(200);
     expect(response.json().id).toBe(id);
+  });
+
+  it("lists persisted scans newest-first with cursor pagination", async () => {
+    const repository = new InMemoryScanRepository();
+    const scans = [
+      {
+        id: "00000000-0000-4000-8000-000000000001",
+        url: "https://example.com/one",
+        status: "completed" as const,
+        score: 87,
+        summary: { critical: 2, warnings: 6, passed: 31 },
+        createdAt: "2026-08-20T00:00:00.000Z",
+        completedAt: "2026-08-20T00:00:00.100Z",
+      },
+      {
+        id: "00000000-0000-4000-8000-000000000002",
+        url: "https://example.com/two",
+        status: "completed" as const,
+        score: 87,
+        summary: { critical: 2, warnings: 6, passed: 31 },
+        createdAt: "2026-08-20T00:00:00.000Z",
+        completedAt: "2026-08-20T00:00:00.100Z",
+      },
+      {
+        id: "00000000-0000-4000-8000-000000000003",
+        url: "https://example.com/three",
+        status: "completed" as const,
+        score: 87,
+        summary: { critical: 2, warnings: 6, passed: 31 },
+        createdAt: "2026-08-21T00:00:00.000Z",
+        completedAt: "2026-08-21T00:00:00.100Z",
+      },
+    ];
+    for (const scan of scans) {
+      repository.create(scan);
+    }
+
+    const app = buildApp({ repository });
+    apps.push(app);
+    const first = await app.inject({ method: "GET", url: "/api/scans?limit=2" });
+    expect(first.statusCode).toBe(200);
+    const firstPage = listScansResponseSchema.parse(first.json());
+    expect(firstPage.items.map((scan) => scan.id)).toEqual([
+      scans[2].id,
+      scans[1].id,
+    ]);
+    expect(firstPage.nextCursor).toBeTruthy();
+
+    const second = await app.inject({
+      method: "GET",
+      url: `/api/scans?limit=2&cursor=${encodeURIComponent(firstPage.nextCursor!)}`,
+    });
+    expect(second.statusCode).toBe(200);
+    expect(listScansResponseSchema.parse(second.json())).toEqual({
+      items: [scans[0]],
+      nextCursor: null,
+    });
+  });
+
+  it("returns an empty history page and validates list queries", async () => {
+    const app = testApp();
+    const empty = await app.inject({ method: "GET", url: "/api/scans" });
+    expect(empty.statusCode).toBe(200);
+    expect(empty.json()).toEqual({ items: [], nextCursor: null });
+
+    for (const url of [
+      "/api/scans?limit=0",
+      "/api/scans?limit=51",
+      "/api/scans?limit=1.5",
+      "/api/scans?limit=not-a-number",
+      "/api/scans?limit=20&limit=21",
+      "/api/scans?unexpected=value",
+      "/api/scans?cursor=not-valid!!",
+    ]) {
+      const response = await app.inject({ method: "GET", url });
+      expect(response.statusCode).toBe(400);
+      expect(errorEnvelopeSchema.parse(response.json()).error.code).toBe("VALIDATION_ERROR");
+    }
+  });
+
+  it("does not invoke an injected scanner client from the public history route", async () => {
+    let calls = 0;
+    const app = buildApp({
+      scannerClient: {
+        scan: async () => {
+          calls += 1;
+          throw new Error("history route must remain database-only");
+        },
+      },
+    });
+    apps.push(app);
+    const response = await app.inject({ method: "GET", url: "/api/scans" });
+    expect(response.statusCode).toBe(200);
+    expect(calls).toBe(0);
   });
 
   it("returns stable validation and not-found envelopes", async () => {

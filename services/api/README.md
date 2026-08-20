@@ -20,6 +20,17 @@ results until a later isolation/integration phase.
 
 The default API host is `127.0.0.1`. Database records survive API restarts. The API still creates deterministic synthetic scan results and never contacts the submitted website.
 
+Product Phase P1 also exposes `GET /api/scans` for persisted scan history. It
+returns newest-first records using bounded cursor pagination:
+
+```text
+GET /api/scans?limit=20
+GET /api/scans?limit=20&cursor=<opaque-cursor>
+```
+
+The limit defaults to 20 and is bounded from 1 through 50. History retrieval
+only queries PostgreSQL; it never invokes the scanner or resolves stored URLs.
+
 Local browser development requests from `http://localhost:<port>` and
 `http://127.0.0.1:<port>` are allowed for the Expo web client. No public origins
 are enabled.
