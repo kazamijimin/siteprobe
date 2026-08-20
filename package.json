@@ -1,0 +1,27 @@
+{
+  "name": "siteprobe",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@11.17.0",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "api:dev": "pnpm --filter @siteprobe/api dev",
+    "api:test": "pnpm --filter @siteprobe/api test",
+    "api:typecheck": "pnpm --filter @siteprobe/api typecheck",
+    "db:check": "pnpm --filter @siteprobe/api db:check",
+    "db:generate": "pnpm --filter @siteprobe/api db:generate",
+    "db:migrate": "pnpm --filter @siteprobe/api db:migrate",
+    "db:test": "pnpm --filter @siteprobe/api db:test",
+    "contracts:build": "pnpm --filter @siteprobe/contracts build",
+    "contracts:test": "pnpm --filter @siteprobe/contracts test",
+    "contracts:typecheck": "pnpm --filter @siteprobe/contracts typecheck",
+    "mobile:start": "pnpm --filter @siteprobe/mobile start",
+    "mobile:android": "pnpm --filter @siteprobe/mobile android",
+    "mobile:lint": "pnpm --filter @siteprobe/mobile lint",
+    "mobile:test": "pnpm --filter @siteprobe/mobile test",
+    "mobile:typecheck": "pnpm --filter @siteprobe/mobile typecheck",
+    "check": "pnpm contracts:build && pnpm contracts:typecheck && pnpm contracts:test && pnpm api:typecheck && pnpm api:test && pnpm db:check && pnpm mobile:typecheck && pnpm mobile:lint && pnpm mobile:test"
+  }
+}

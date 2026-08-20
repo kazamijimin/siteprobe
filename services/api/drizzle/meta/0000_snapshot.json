@@ -1,0 +1,113 @@
+{
+  "id": "ec93fb06-3bfa-4b50-8441-5d51a38ab86d",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.scans": {
+      "name": "scans",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "requested_url": {
+          "name": "requested_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "normalized_url": {
+          "name": "normalized_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "overall_score": {
+          "name": "overall_score",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "critical_count": {
+          "name": "critical_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "warning_count": {
+          "name": "warning_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "passed_count": {
+          "name": "passed_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "scans_status_check": {
+          "name": "scans_status_check",
+          "value": "\"scans\".\"status\" in ('queued', 'running', 'completed', 'failed')"
+        },
+        "scans_score_check": {
+          "name": "scans_score_check",
+          "value": "\"scans\".\"overall_score\" is null or (\"scans\".\"overall_score\" >= 0 and \"scans\".\"overall_score\" <= 100)"
+        },
+        "scans_critical_count_check": {
+          "name": "scans_critical_count_check",
+          "value": "\"scans\".\"critical_count\" >= 0"
+        },
+        "scans_warning_count_check": {
+          "name": "scans_warning_count_check",
+          "value": "\"scans\".\"warning_count\" >= 0"
+        },
+        "scans_passed_count_check": {
+          "name": "scans_passed_count_check",
+          "value": "\"scans\".\"passed_count\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
