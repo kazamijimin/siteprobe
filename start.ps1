@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
-    [switch]$IncludeMobile
+    [switch]$IncludeMobile,
+    [switch]$IncludeWeb
 )
 
 Set-StrictMode -Version Latest
@@ -11,6 +12,10 @@ $stateDirectory = Join-Path $repoRoot ".siteprobe"
 $pnpmCommand = (Get-Command pnpm.cmd -ErrorAction Stop).Source
 
 Set-Location $repoRoot
+
+if ($IncludeMobile -and $IncludeWeb) {
+    throw "Choose either -IncludeMobile or -IncludeWeb; both start the Expo development server."
+}
 
 foreach ($requiredEnvFile in @("services/api/.env", "services/scanner/.env")) {
     $path = Join-Path $repoRoot $requiredEnvFile
@@ -30,6 +35,11 @@ if ($IncludeMobile) {
     $services += [pscustomobject]@{ Name = "mobile"; Script = "mobile:start" }
 }
 
+if ($IncludeWeb) {
+    $services += [pscustomobject]@{ Name = "web"; Script = "mobile:web" }
+}
+
+$webApiUrl = "http://127.0.0.1:3000"
 $startedStateFiles = [System.Collections.Generic.List[string]]::new()
 
 try {
@@ -48,14 +58,33 @@ try {
 
         $logPath = Join-Path $stateDirectory "$($service.Name).log"
         $errorLogPath = Join-Path $stateDirectory "$($service.Name).error.log"
-        $process = Start-Process `
-            -FilePath $pnpmCommand `
-            -ArgumentList $service.Script `
-            -WorkingDirectory $repoRoot `
-            -WindowStyle Hidden `
-            -RedirectStandardOutput $logPath `
-            -RedirectStandardError $errorLogPath `
-            -PassThru
+        $restoreApiUrl = $false
+        $previousApiUrl = $env:EXPO_PUBLIC_API_URL
+        if ($service.Name -eq "web") {
+            $env:EXPO_PUBLIC_API_URL = $webApiUrl
+            $restoreApiUrl = $true
+        }
+
+        try {
+            $process = Start-Process `
+                -FilePath $pnpmCommand `
+                -ArgumentList $service.Script `
+                -WorkingDirectory $repoRoot `
+                -WindowStyle Hidden `
+                -RedirectStandardOutput $logPath `
+                -RedirectStandardError $errorLogPath `
+                -PassThru
+        }
+        finally {
+            if ($restoreApiUrl) {
+                if ($null -eq $previousApiUrl) {
+                    Remove-Item Env:\EXPO_PUBLIC_API_URL -ErrorAction SilentlyContinue
+                }
+                else {
+                    $env:EXPO_PUBLIC_API_URL = $previousApiUrl
+                }
+            }
+        }
 
         Start-Sleep -Milliseconds 300
         if ($process.HasExited) {

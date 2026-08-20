@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 import { hasValidBearerToken } from "./auth/internal-auth.js";
 import type { ScannerConfig } from "./config.js";
 import { IsolationGate } from "./isolation/gate.js";
+import { collectIsolationEvidence } from "./isolation/evidence.js";
 import { healthRoutes } from "./routes/health.js";
 import { readinessRoutes } from "./routes/ready.js";
 import { scanRoutes, type ScannerRunner } from "./routes/scan.js";
@@ -18,7 +19,9 @@ export function buildScannerApp(options: BuildScannerAppOptions): FastifyInstanc
   const app = Fastify({ bodyLimit: 16 * 1024, logger: options.logger ?? false });
   app.removeContentTypeParser("text/plain");
   app.decorate("scannerActive", false);
-  const gate = options.gate ?? new IsolationGate(options.config.isolationCapabilities);
+  const gate = options.gate ?? new IsolationGate(options.config.isolationCapabilities, {
+    evidenceProvider: () => collectIsolationEvidence(options.config),
+  });
 
   app.setErrorHandler((error, request, reply) => {
     const apiError = error as { code?: string; statusCode?: number };

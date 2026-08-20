@@ -3,7 +3,13 @@ import { buildScannerApp } from "./app.js";
 import { runScan } from "./scan/run-scan.js";
 
 const config = loadScannerConfig();
-const app = buildScannerApp({ config, logger: true, runScan });
+const app = buildScannerApp({
+  config,
+  logger: true,
+  runScan: (input) => runScan(input, {
+    proxyServer: config.executionMode === "isolated" ? config.egressProxyUrl : undefined,
+  }),
+});
 
 let shuttingDown = false;
 async function shutdown(signal: string): Promise<void> {

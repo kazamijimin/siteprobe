@@ -10,6 +10,10 @@ const scannerEnvironmentSchema = z.object({
   SCANNER_INTERNAL_TOKEN: z.string().trim().optional(),
   SCANNER_EXECUTION_MODE: scannerExecutionModeSchema.default("controlled"),
   SCANNER_CONTROLLED_HOSTS: z.string().default(""),
+  SCANNER_EGRESS_PROXY_URL: z.string().trim().default(""),
+  SCANNER_ATTESTATION_PATH: z.string().trim().default("/etc/siteprobe/scanner-attestation.json"),
+  SCANNER_ATTESTATION_PUBLIC_KEY_PATH: z.string().trim().default("/etc/siteprobe/scanner-attestation.pub"),
+  SCANNER_BROWSER_SANDBOX_EVIDENCE_PATH: z.string().trim().default("/run/siteprobe/chromium-sandbox.verified"),
 });
 
 export type ScannerConfig = {
@@ -18,6 +22,10 @@ export type ScannerConfig = {
   internalToken: string;
   executionMode: ScannerExecutionMode;
   controlledHosts: readonly string[];
+  egressProxyUrl: string;
+  attestationPath: string;
+  attestationPublicKeyPath: string;
+  browserSandboxEvidencePath: string;
   isolationCapabilities: ReturnType<typeof readIsolationCapabilities>;
 };
 
@@ -41,6 +49,10 @@ export function loadScannerConfig(environment: NodeJS.ProcessEnv = process.env):
     internalToken: parsed.SCANNER_INTERNAL_TOKEN,
     executionMode: parsed.SCANNER_EXECUTION_MODE,
     controlledHosts: parseControlledHosts(parsed.SCANNER_CONTROLLED_HOSTS),
+    egressProxyUrl: parsed.SCANNER_EGRESS_PROXY_URL,
+    attestationPath: parsed.SCANNER_ATTESTATION_PATH,
+    attestationPublicKeyPath: parsed.SCANNER_ATTESTATION_PUBLIC_KEY_PATH,
+    browserSandboxEvidencePath: parsed.SCANNER_BROWSER_SANDBOX_EVIDENCE_PATH,
     isolationCapabilities: readIsolationCapabilities(environment),
   };
 }

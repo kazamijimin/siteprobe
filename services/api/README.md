@@ -20,4 +20,8 @@ results until a later isolation/integration phase.
 
 The default API host is `127.0.0.1`. Database records survive API restarts. The API still creates deterministic synthetic scan results and never contacts the submitted website.
 
+Local browser development requests from `http://localhost:<port>` and
+`http://127.0.0.1:<port>` are allowed for the Expo web client. No public origins
+are enabled.
+
 Use `SITEPROBE_TEST_DATABASE_URL` for the opt-in PostgreSQL integration tests. Point it at a disposable dedicated test database; ordinary `pnpm check` and API route tests do not require a live database.

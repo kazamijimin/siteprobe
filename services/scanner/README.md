@@ -42,9 +42,18 @@ scanner endpoint or production scan command.
 
 Copy `.env.example` to `.env` and set a strong random `SCANNER_INTERNAL_TOKEN`.
 Keep `SCANNER_EXECUTION_MODE=controlled` for local development. Isolated mode
-fails closed unless every `SCANNER_CAP_*` capability is trusted as `verified` or
-`declared` by deployment configuration. These declarations do not prove that
-the current Windows machine is network-isolated.
+fails closed unless a root-owned, signed deployment attestation and independent
+runtime evidence are present. `SCANNER_CAP_*` values are diagnostics only;
+`verified` and `declared` values from the scanner process cannot establish
+isolated readiness.
+
+Linux isolated deployments use `SCANNER_ATTESTATION_PATH`,
+`SCANNER_ATTESTATION_PUBLIC_KEY_PATH`, and
+`SCANNER_BROWSER_SANDBOX_EVIDENCE_PATH`, plus `SCANNER_EGRESS_PROXY_URL` for
+the mandatory browser proxy. The attestation is produced outside
+the scanner process and covers firewall, proxy, resolver, and canary evidence.
+The repository includes a VM boundary design under `infra/scanner-vm/`; it is
+not applied to the Windows development machine.
 
 Application checks do not solve DNS rebinding or provide network isolation. A
 future scanner deployment needs an isolated, non-root execution environment with

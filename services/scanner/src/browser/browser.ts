@@ -1,9 +1,12 @@
 import { chromium, type Browser } from "playwright";
 
 export interface BrowserLauncher {
-  launch(): Promise<Browser>;
+  launch(options?: { proxyServer?: string }): Promise<Browser>;
 }
 
 export const chromiumLauncher: BrowserLauncher = {
-  launch: () => chromium.launch({ headless: true }),
+  launch: (options) => chromium.launch({
+    headless: true,
+    ...(options?.proxyServer ? { proxy: { server: options.proxyServer } } : {}),
+  }),
 };
