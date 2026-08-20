@@ -1,5 +1,9 @@
 import {
   createScanRequestSchema,
+  listScansQuerySchema,
+  listScansResponseSchema,
+  scanCursorPayloadSchema,
+  scanCursorSchema,
   scanIdParamsSchema,
   scanResponseSchema,
   type ErrorDetail,
@@ -7,7 +11,7 @@ import {
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
 import { randomUUID } from "node:crypto";
 import { ZodError } from "zod";
-import type { ScanRepository } from "../repository.js";
+import type { ScanListPosition, ScanRepository } from "../repository.js";
 
 const SYNTHETIC_SCORE = 87;
 const SYNTHETIC_SUMMARY = { critical: 2, warnings: 6, passed: 31 } as const;
@@ -65,6 +69,17 @@ function requestedUrlFromBody(body: unknown, normalizedUrl: string): string {
   return normalizedUrl;
 }
 
+function encodeCursor(position: ScanListPosition): string {
+  return scanCursorSchema.parse(Buffer.from(JSON.stringify({ v: 1, ...position }), "utf8").toString("base64url"));
+}
+
+function decodeCursor(cursor: string): ScanListPosition {
+  const payload = scanCursorPayloadSchema.parse(
+    JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")) as unknown,
+  );
+  return { createdAt: payload.createdAt, id: payload.id };
+}
+
 export function scanRoutes(repository: ScanRepository): FastifyPluginAsync {
   return async (app) => {
     app.post("/api/scans", async (request, reply) => {
@@ -83,6 +98,39 @@ export function scanRoutes(repository: ScanRepository): FastifyPluginAsync {
         requestedUrlFromBody(request.body, result.data.url),
       );
       reply.code(201).send(scan);
+    });
+
+    app.get("/api/scans", async (request, reply) => {
+      const queryResult = listScansQuerySchema.safeParse(request.query as unknown);
+      if (!queryResult.success) {
+        sendError(request, reply, {
+          code: "VALIDATION_ERROR",
+          message: "Request validation failed",
+          details: zodDetails(queryResult.error),
+        }, 400);
+        return;
+      }
+
+      let before: ScanListPosition | undefined;
+      if (queryResult.data.cursor) {
+        try {
+          before = decodeCursor(queryResult.data.cursor);
+        } catch {
+          sendError(request, reply, {
+            code: "VALIDATION_ERROR",
+            message: "Request validation failed",
+            details: [{ path: "cursor", message: "Cursor is invalid" }],
+          }, 400);
+          return;
+        }
+      }
+
+      const page = await repository.list({ limit: queryResult.data.limit, before });
+      const response = listScansResponseSchema.parse({
+        items: page.items,
+        nextCursor: page.nextPosition ? encodeCursor(page.nextPosition) : null,
+      });
+      reply.send(response);
     });
 
     app.get("/api/scans/:id", async (request, reply) => {

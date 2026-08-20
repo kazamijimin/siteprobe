@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Stack, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import type { ScanResponse } from '@siteprobe/contracts';
 import { getScan } from '@/features/scans/scan-api';
+import { formatScanStatus, formatScanTimestamp } from '@/features/scans/presentation';
 import { getUserFacingErrorMessage } from '@/services/api/errors';
 
 type ResultState =
@@ -47,6 +48,10 @@ export default function ScanResultScreen() {
 
   function goHome() {
     router.replace('/');
+  }
+
+  function goHistory() {
+    router.replace({ pathname: '/scans' } as unknown as Href);
   }
 
   const visibleState: ResultState = scanId
@@ -100,12 +105,13 @@ export default function ScanResultScreen() {
   }
 
   const { scan } = visibleState;
-  const statusLabel = scan.status.charAt(0).toUpperCase() + scan.status.slice(1);
+  const statusLabel = formatScanStatus(scan.status);
 
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ title: 'Scan Result' }} />
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.resultContent}>
         <Text accessibilityRole="header" style={styles.title}>
           Scan Result
         </Text>
@@ -119,11 +125,15 @@ export default function ScanResultScreen() {
         <View style={styles.summary}>
           <Text style={styles.summaryValue}>Critical: {scan.summary.critical}</Text>
           <Text style={styles.summaryValue}>Warnings: {scan.summary.warnings}</Text>
-          <Text style={styles.summaryValue}>Passed: {scan.summary.passed}</Text>
+        <Text style={styles.summaryValue}>Passed: {scan.summary.passed}</Text>
         </View>
+        <Text style={styles.label}>Created</Text>
+        <Text style={styles.value}>{formatScanTimestamp(scan.createdAt)}</Text>
+        <Text style={styles.label}>Completed</Text>
+        <Text style={styles.value}>{scan.completedAt ? formatScanTimestamp(scan.completedAt) : 'Not completed'}</Text>
         <Text style={styles.label}>Scan ID</Text>
         <Text selectable style={styles.scanId}>
-          {scanId ?? 'Unknown'}
+          {scan.id}
         </Text>
         <Text style={styles.notice}>
           Synthetic QA result — real website scanning is not implemented yet.
@@ -136,7 +146,15 @@ export default function ScanResultScreen() {
           style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}>
           <Text style={styles.buttonText}>Back to Home</Text>
         </Pressable>
-      </View>
+        <Pressable
+          accessibilityLabel="View Scan History"
+          accessibilityRole="button"
+          onPress={goHistory}
+          style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}>
+          <Text style={styles.secondaryButtonText}>View Scan History</Text>
+        </Pressable>
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -153,6 +171,18 @@ const styles = StyleSheet.create({
     maxWidth: 520,
     width: '100%',
     alignSelf: 'center',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+  },
+  resultContent: {
+    flex: 1,
+    justifyContent: 'center',
+    maxWidth: 520,
+    width: '100%',
+    alignSelf: 'center',
+    paddingVertical: 24,
   },
   title: {
     color: '#1A202C',

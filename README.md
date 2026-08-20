@@ -2,7 +2,7 @@
 
 SiteProbe is a mobile-first website QA platform. The long-term product will submit website targets from an Expo application to a backend that runs isolated browser checks.
 
-## Current status: Phase G
+## Current status: Product Phase P1
 
 - Phase A — Expo/Metro/Hermes foundation
 - Phase B — Shared contracts and fake Fastify API
@@ -11,6 +11,7 @@ SiteProbe is a mobile-first website QA platform. The long-term product will subm
 - Phase E — Scanner security boundary and SSRF policy
 - Phase F — Controlled Playwright scanner engine
 - Phase G — Private authenticated scanner worker and isolation gate
+- Product Phase P1 — Persistent scan history and improved synthetic results
 
 Phase A established the Expo mobile foundation:
 
@@ -22,9 +23,9 @@ Phase A established the Expo mobile foundation:
 - Hermes
 - pnpm workspace
 
-The app contains a Home scan form and a validated Scan Result route.
+The app contains a Home scan form, persistent Scan History route, and validated Scan Result route.
 
-Phase B added the platform-neutral Zod contracts and a local-only Fastify fake API. Phase C connects the Expo client to that API: Home creates a scan, the server-created ID drives navigation, and the Result screen retrieves and validates the scan independently.
+Phase B added the platform-neutral Zod contracts and a local-only Fastify fake API. Phase C connects the Expo client to that API: Home creates a scan, the server-created ID drives navigation, and the Result screen retrieves and validates the scan independently. Product Phase P1 adds persisted history with bounded cursor pagination and keeps the result experience explicitly synthetic.
 
 Phase D replaces the API's in-memory repository with PostgreSQL persistence through Drizzle ORM and versioned SQL migrations. Phase E adds the scanner safety boundary: URL policy, DNS/IP classification, redirect validation, passive request policy, and resource limits. Phase F adds a controlled Chromium engine that reuses those checks and returns internal observations. Phase G adds a loopback-only authenticated scanner worker, a fail-closed isolation gate, and an API-side client that is deliberately not used by the public route.
 
@@ -213,6 +214,10 @@ pnpm mobile:android
 ```
 
 Phase D requires PostgreSQL and Drizzle for API persistence. Phase E uses DNS only when explicitly evaluating a destination through the scanner safety API; tests inject deterministic resolvers. Phase F requires the scanner-local Playwright Chromium install for controlled tests. Phase G adds the private worker boundary, but does not wire browser execution into the public API.
+
+Product Phase P1 adds `GET /api/scans` and the mobile `/scans` history screen.
+History records are persisted synthetic results from the public API. Real browser
+integration remains deferred pending verified scanner isolation.
 
 Phase E/F provide application-level SSRF defenses and per-request browser interception. Phase G adds authentication and a fail-closed isolation gate, but these are still not a complete network boundary. SiteProbe is not approved for public arbitrary-URL scanning until deployment adds isolated execution and network-level egress controls: no host/database/LAN/metadata access, no Docker socket or sensitive mounts, non-root execution, Chromium sandboxing, resource limits, deadlines, and controls to address DNS rebinding.
 

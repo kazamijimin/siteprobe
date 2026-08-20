@@ -7,7 +7,7 @@ import {
   TimeoutError,
   buildApiUrl,
 } from '@/services/api/client';
-import { createScan, getScan } from '@/features/scans/scan-api';
+import { createScan, getScan, listScans } from '@/features/scans/scan-api';
 
 const scanFixture = {
   id: '00000000-0000-4000-8000-000000000000',
@@ -17,6 +17,11 @@ const scanFixture = {
   summary: { critical: 2, warnings: 6, passed: 31 },
   createdAt: '2026-08-20T00:00:00.000Z',
   completedAt: '2026-08-20T00:00:00.100Z',
+};
+
+const historyFixture = {
+  items: [scanFixture],
+  nextCursor: 'eyJ2IjoxLCJjcmVhdGVkQXQiOiIyMDI2LTA4LTIwVDAwOjAwOjAwLjAwMFoiLCJpZCI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMCJ9',
 };
 
 afterEach(() => {
@@ -59,6 +64,35 @@ describe('mobile API configuration and client', () => {
         'Content-Type': 'application/json',
       },
     });
+  });
+
+  it('lists runtime-validated history pages with encoded cursors', async () => {
+    process.env.EXPO_PUBLIC_API_URL = 'http://127.0.0.1:3000';
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => historyFixture,
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(listScans()).resolves.toEqual(historyFixture);
+    await expect(listScans({ limit: 50, cursor: 'abc_-123' })).resolves.toEqual(historyFixture);
+    expect(fetchMock.mock.calls[0][0]).toBe('http://127.0.0.1:3000/api/scans?limit=20');
+    expect(fetchMock.mock.calls[1][0]).toBe('http://127.0.0.1:3000/api/scans?limit=50&cursor=abc_-123');
+  });
+
+  it('rejects malformed history responses and preserves cancellation behavior', async () => {
+    process.env.EXPO_PUBLIC_API_URL = 'http://127.0.0.1:3000';
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ items: [{ id: 'bad' }], nextCursor: null }) })
+      .mockRejectedValueOnce(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(listScans()).rejects.toBeInstanceOf(ContractError);
+    const controller = new AbortController();
+    const request = listScans({ signal: controller.signal });
+    controller.abort();
+    await expect(request).rejects.toBeInstanceOf(TimeoutError);
   });
 
   it('maps validated server errors, malformed success, and network failures', async () => {

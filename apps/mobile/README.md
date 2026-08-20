@@ -5,9 +5,14 @@ This Expo SDK 57 application is the SiteProbe mobile client.
 ## Routes
 
 - `/` — URL entry and fake scan creation
+- `/scans` — persisted synthetic scan history
 - `/scans/[id]` — validated fake scan result retrieval
 
 The app uses React Native, TypeScript, Expo Router, Metro, and Hermes. It connects to the local Fastify fake API using the shared contracts package and native `fetch`.
+
+Product Phase P1 adds bounded scan-history pagination and keeps all displayed
+results labeled as synthetic while real browser integration remains deferred
+pending verified scanner isolation.
 
 ## Development
 

@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, desc, eq, lt, or } from "drizzle-orm";
 import { scanResponseSchema, type ScanResponse } from "@siteprobe/contracts";
 import type { SiteProbeDatabase } from "./db/client.js";
 import { scans, type ScanRow } from "./db/schema.js";
@@ -6,6 +6,50 @@ import { scans, type ScanRow } from "./db/schema.js";
 export interface ScanRepository {
   create(scan: ScanResponse, requestedUrl?: string): Promise<ScanResponse> | ScanResponse;
   findById(id: string): Promise<ScanResponse | undefined> | ScanResponse | undefined;
+  list(options: ListScansOptions): Promise<ScanListPage> | ScanListPage;
+}
+
+export type ScanListPosition = {
+  createdAt: string;
+  id: string;
+};
+
+export type ListScansOptions = {
+  limit: number;
+  before?: ScanListPosition;
+};
+
+export type ScanListPage = {
+  items: ScanResponse[];
+  nextPosition: ScanListPosition | null;
+};
+
+function compareScans(left: ScanResponse, right: ScanResponse): number {
+  const createdDifference = Date.parse(right.createdAt) - Date.parse(left.createdAt);
+  if (createdDifference !== 0) {
+    return createdDifference;
+  }
+  if (left.id === right.id) return 0;
+  return left.id > right.id ? -1 : 1;
+}
+
+function isBeforeCursor(scan: ScanResponse, cursor: ScanListPosition): boolean {
+  const scanCreatedAt = Date.parse(scan.createdAt);
+  const cursorCreatedAt = Date.parse(cursor.createdAt);
+  return scanCreatedAt < cursorCreatedAt
+    || (scanCreatedAt === cursorCreatedAt && scan.id < cursor.id);
+}
+
+function pageFromItems(items: ScanResponse[], limit: number): ScanListPage {
+  const hasMore = items.length > limit;
+  const pageItems = items.slice(0, limit);
+  const last = pageItems.at(-1);
+  return {
+    items: pageItems,
+    nextPosition: hasMore && last
+      ? { createdAt: last.createdAt, id: last.id }
+      : null,
+  };
 }
 
 export class InMemoryScanRepository implements ScanRepository {
@@ -18,6 +62,13 @@ export class InMemoryScanRepository implements ScanRepository {
 
   findById(id: string): ScanResponse | undefined {
     return this.scans.get(id);
+  }
+
+  list(options: ListScansOptions): ScanListPage {
+    const items = [...this.scans.values()]
+      .filter((scan) => !options.before || isBeforeCursor(scan, options.before))
+      .sort(compareScans);
+    return pageFromItems(items, options.limit);
   }
 }
 
@@ -63,5 +114,24 @@ export class PostgresScanRepository implements ScanRepository {
   async findById(id: string): Promise<ScanResponse | undefined> {
     const [row] = await this.db.select().from(scans).where(eq(scans.id, id)).limit(1);
     return row ? mapScanRow(row) : undefined;
+  }
+
+  async list(options: ListScansOptions): Promise<ScanListPage> {
+    const cursor = options.before;
+    const cursorDate = cursor ? new Date(cursor.createdAt) : undefined;
+    const cursorFilter = cursor && cursorDate
+      ? or(
+        lt(scans.createdAt, cursorDate),
+        and(eq(scans.createdAt, cursorDate), lt(scans.id, cursor.id)),
+      )
+      : undefined;
+    const rows = await this.db
+      .select()
+      .from(scans)
+      .where(cursorFilter)
+      .orderBy(desc(scans.createdAt), desc(scans.id))
+      .limit(options.limit + 1);
+
+    return pageFromItems(rows.map(mapScanRow), options.limit);
   }
 }
