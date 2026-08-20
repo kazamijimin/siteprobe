@@ -1,0 +1,12 @@
+# SiteProbe API
+
+The API owns PostgreSQL persistence for the Phase D `scans` table.
+
+1. Copy `.env.example` to `.env`.
+2. Set `DATABASE_URL` to a dedicated local PostgreSQL database.
+3. Apply migrations with `pnpm db:migrate`.
+4. Start with `pnpm api:dev` from the repository root.
+
+The default API host is `127.0.0.1`. Database records survive API restarts. The API still creates deterministic synthetic scan results and never contacts the submitted website.
+
+Use `SITEPROBE_TEST_DATABASE_URL` for the opt-in PostgreSQL integration tests. Point it at a disposable dedicated test database; ordinary `pnpm check` and API route tests do not require a live database.
