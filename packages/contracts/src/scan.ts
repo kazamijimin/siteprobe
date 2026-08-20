@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 const MAX_URL_LENGTH = 2048;
+const MAX_HISTORY_SEARCH_LENGTH = 200;
 
 export const scanStatusSchema = z.enum([
   "queued",
@@ -101,17 +102,43 @@ export const scanResponseSchema = z
 
 export type ScanResponse = z.infer<typeof scanResponseSchema>;
 
+const historySearchValueSchema = z
+  .string()
+  .min(1, "Search query must not be empty")
+  .max(MAX_HISTORY_SEARCH_LENGTH, `Search query must be at most ${MAX_HISTORY_SEARCH_LENGTH} characters`)
+  .refine((value) => !value.includes("\u0000"), "Search query contains an unsupported character");
+
+export const scanHistorySearchQuerySchema = z.preprocess(
+  (value) => {
+    if (typeof value !== "string") {
+      return value;
+    }
+
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  },
+  historySearchValueSchema.optional(),
+);
+
+export type ScanHistorySearchQuery = z.infer<typeof scanHistorySearchQuerySchema>;
+
 export const scanCursorSchema = z
   .string()
   .min(1)
   .max(512)
   .regex(/^[A-Za-z0-9_-]+$/, "Cursor must be a base64url value");
 
+export const scanCursorQueryHashSchema = z
+  .string()
+  .length(43)
+  .regex(/^[A-Za-z0-9_-]+$/, "Query hash must be a base64url value");
+
 export const scanCursorPayloadSchema = z
   .object({
     v: z.literal(1),
     createdAt: z.string().datetime({ offset: true }),
     id: z.string().uuid(),
+    queryHash: scanCursorQueryHashSchema.optional(),
   })
   .strict();
 
@@ -121,6 +148,7 @@ export const listScansQuerySchema = z
   .object({
     limit: z.coerce.number().int().min(1).max(50).default(20),
     cursor: scanCursorSchema.optional(),
+    q: scanHistorySearchQuerySchema,
   })
   .strict();
 

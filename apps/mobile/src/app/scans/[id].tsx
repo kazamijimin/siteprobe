@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Stack, useLocalSearchParams, useRouter, type Href } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import type { ScanResponse } from '@siteprobe/contracts';
 import { getScan } from '@/features/scans/scan-api';
 import { formatScanStatus, formatScanTimestamp } from '@/features/scans/presentation';
@@ -51,7 +51,7 @@ export default function ScanResultScreen() {
   }
 
   function goHistory() {
-    router.replace({ pathname: '/scans' } as unknown as Href);
+    router.replace('/scans');
   }
 
   const visibleState: ResultState = scanId

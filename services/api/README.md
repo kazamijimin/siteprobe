@@ -31,6 +31,19 @@ GET /api/scans?limit=20&cursor=<opaque-cursor>
 The limit defaults to 20 and is bounded from 1 through 50. History retrieval
 only queries PostgreSQL; it never invokes the scanner or resolves stored URLs.
 
+Product Phase P2 adds server-backed literal, case-insensitive substring search
+over both persisted URL forms:
+
+```text
+GET /api/scans?q=example
+GET /api/scans?limit=20&q=example.com&cursor=<opaque-cursor>
+```
+
+The search query is trimmed, limited to 200 characters, and treats `%`, `_`,
+and `\\` as literal characters. Search cursors are bound to the active query;
+reusing a cursor with a different query returns a validation error. Search remains
+database-only and never contacts stored URLs or invokes the scanner.
+
 Local browser development requests from `http://localhost:<port>` and
 `http://127.0.0.1:<port>` are allowed for the Expo web client. No public origins
 are enabled.

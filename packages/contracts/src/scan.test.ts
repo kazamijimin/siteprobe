@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createScanRequestSchema,
   errorEnvelopeSchema,
+  scanHistorySearchQuerySchema,
   listScansQuerySchema,
   listScansResponseSchema,
   scanCursorPayloadSchema,
@@ -91,6 +92,16 @@ describe("scan contracts", () => {
     for (const limit of ["0", "51", "1.5", "not-a-number"]) {
       expect(() => listScansQuerySchema.parse({ limit })).toThrow();
     }
+    expect(listScansQuerySchema.parse({ q: "  Example.com  " })).toEqual({
+      limit: 20,
+      q: "Example.com",
+    });
+    expect(listScansQuerySchema.parse({ q: "" })).toEqual({ limit: 20 });
+    expect(listScansQuerySchema.parse({ q: "   " })).toEqual({ limit: 20 });
+    expect(scanHistorySearchQuerySchema.parse("a".repeat(200))).toHaveLength(200);
+    expect(() => scanHistorySearchQuerySchema.parse("a".repeat(201))).toThrow();
+    expect(() => scanHistorySearchQuerySchema.parse("contains\u0000nul")).toThrow();
+    expect(() => listScansQuerySchema.parse({ q: ["first", "second"] })).toThrow();
     expect(() => listScansQuerySchema.parse({ unexpected: "value" })).toThrow();
   });
 
@@ -102,11 +113,17 @@ describe("scan contracts", () => {
     };
     expect(scanCursorPayloadSchema.parse(payload)).toEqual(payload);
     expect(scanCursorSchema.parse("abc_-123")).toBe("abc_-123");
+    const queryHash = "A".repeat(43);
+    expect(scanCursorPayloadSchema.parse({ ...payload, queryHash })).toEqual({
+      ...payload,
+      queryHash,
+    });
     expect(() => scanCursorSchema.parse("not-valid!")).toThrow();
     expect(() => scanCursorSchema.parse(" abc_-123 ")).toThrow();
     expect(() => scanCursorSchema.parse("a".repeat(513))).toThrow();
     expect(() => scanCursorPayloadSchema.parse({ ...payload, v: 2 })).toThrow();
     expect(() => scanCursorPayloadSchema.parse({ ...payload, id: "bad" })).toThrow();
+    expect(() => scanCursorPayloadSchema.parse({ ...payload, queryHash: "bad" })).toThrow();
     expect(listScansResponseSchema.parse({ items: [], nextCursor: null })).toEqual({
       items: [],
       nextCursor: null,

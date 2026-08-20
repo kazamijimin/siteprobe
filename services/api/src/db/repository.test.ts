@@ -113,4 +113,59 @@ describeDatabase("PostgreSQL scan persistence", () => {
     expect(secondPage.items.map((scan) => scan.url)).toEqual([records[0].url]);
     expect(secondPage.nextPosition).toBeNull();
   });
+
+  it("searches persisted URL forms with literal matching", async () => {
+    const records = [
+      {
+        id: randomUUID(),
+        url: "https://db-search.example/percent%value_under_score",
+        status: "completed" as const,
+        score: 87,
+        summary: { critical: 2, warnings: 6, passed: 31 },
+        createdAt: "2100-08-20T00:00:00.000Z",
+        completedAt: "2100-08-20T00:00:00.100Z",
+      },
+      {
+        id: randomUUID(),
+        url: "https://db-search.example/second",
+        status: "completed" as const,
+        score: 87,
+        summary: { critical: 2, warnings: 6, passed: 31 },
+        createdAt: "2100-08-21T00:00:00.000Z",
+        completedAt: "2100-08-21T00:00:00.100Z",
+      },
+      {
+        id: randomUUID(),
+        url: "https://db-search.example/third",
+        status: "completed" as const,
+        score: 87,
+        summary: { critical: 2, warnings: 6, passed: 31 },
+        createdAt: "2100-08-22T00:00:00.000Z",
+        completedAt: "2100-08-22T00:00:00.100Z",
+      },
+    ];
+    await repository.create(records[0], "https://db-requested.example/back\\slash");
+    await repository.create(records[1]);
+    await repository.create(records[2]);
+
+    await expect(repository.list({ limit: 10, query: "DB-REQUESTED.EXAMPLE" })).resolves.toMatchObject({
+      items: [expect.objectContaining({ id: records[0].id })],
+    });
+    await expect(repository.list({ limit: 10, query: "%" })).resolves.toMatchObject({
+      items: [expect.objectContaining({ id: records[0].id })],
+    });
+    await expect(repository.list({ limit: 10, query: "_" })).resolves.toMatchObject({
+      items: [expect.objectContaining({ id: records[0].id })],
+    });
+    await expect(repository.list({ limit: 2, query: "db-search.example" })).resolves.toMatchObject({
+      items: [
+        expect.objectContaining({ id: records[2].id }),
+        expect.objectContaining({ id: records[1].id }),
+      ],
+      nextPosition: {
+        createdAt: records[1].createdAt,
+        id: records[1].id,
+      },
+    });
+  });
 });
