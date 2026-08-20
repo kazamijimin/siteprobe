@@ -14,6 +14,8 @@ describe("API configuration", () => {
       host: "127.0.0.1",
       port: 3000,
       databaseUrl: "postgresql://siteprobe@127.0.0.1:5432/siteprobe",
+      scannerUrl: "http://127.0.0.1:3100",
+      scannerInternalToken: undefined,
     });
   });
 });

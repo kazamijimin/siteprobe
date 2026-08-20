@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 import { healthRoutes } from "./routes/health.js";
 import { scanRoutes } from "./routes/scans.js";
 import { InMemoryScanRepository, type ScanRepository } from "./repository.js";
+import type { ScannerClient } from "./scanner/client.js";
 
 const BODY_LIMIT_BYTES = 16 * 1024;
 
@@ -25,6 +26,8 @@ function errorResponse(
 export type BuildAppOptions = {
   repository?: ScanRepository;
   logger?: boolean;
+  /** Phase G prepares this boundary; public routes intentionally do not use it yet. */
+  scannerClient?: ScannerClient;
 };
 
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {

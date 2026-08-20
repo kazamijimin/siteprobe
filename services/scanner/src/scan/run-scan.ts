@@ -203,7 +203,7 @@ async function executeScan(
     });
     responseStatus = response?.status() ?? null;
     navigationSucceeded = true;
-    await resources.page.waitForTimeout(Math.min(25, policy.actionTimeoutMs));
+    await resources.page.waitForTimeout(Math.min(100, policy.actionTimeoutMs));
   } catch (error) {
     failureCode = state.requestLimitExceeded
       ? "REQUEST_LIMIT_EXCEEDED"

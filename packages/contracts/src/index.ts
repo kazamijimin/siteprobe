@@ -21,6 +21,8 @@ export type {
 export {
   scannerSafetyEvaluationSchema,
   scannerFailedRequestSchema,
+  scannerInternalErrorCodeSchema,
+  scannerInternalErrorEnvelopeSchema,
   scannerResultSchema,
   scannerRunFailureCodeSchema,
   scannerSecurityFailureCodeSchema,
@@ -29,6 +31,8 @@ export {
 export type {
   ScannerSafetyEvaluation,
   ScannerFailedRequest,
+  ScannerInternalErrorCode,
+  ScannerInternalErrorEnvelope,
   ScannerResult,
   ScannerRunFailureCode,
   ScannerSecurityFailureCode,

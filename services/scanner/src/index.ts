@@ -26,6 +26,23 @@ export {
 } from "./security/request-policy.js";
 export { scannerResourcePolicy, type ScannerResourcePolicy } from "./security/limits.js";
 export { parseScannerUrl, type ScannerUrl } from "./security/url-policy.js";
+export { buildScannerApp, type BuildScannerAppOptions } from "./app.js";
+export {
+  loadScannerConfig,
+  scannerExecutionModeSchema,
+  type ScannerConfig,
+  type ScannerExecutionMode,
+} from "./config.js";
+export { hasValidBearerToken } from "./auth/internal-auth.js";
+export {
+  requiredIsolationCapabilities,
+  assessIsolationCapabilities,
+  type CapabilityStatus,
+  type IsolationCapabilities,
+  type IsolationCapabilityName,
+  type IsolationAssessment,
+} from "./isolation/capabilities.js";
+export { IsolationGate } from "./isolation/gate.js";
 export { chromiumLauncher, type BrowserLauncher } from "./browser/browser.js";
 export { createScannerContext } from "./browser/context.js";
 export {
