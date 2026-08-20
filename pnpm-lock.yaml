@@ -149,6 +149,25 @@ importers:
         specifier: ^3.2.4
         version: 3.2.7(@types/node@24.13.3)(lightningcss@1.33.0)(supports-color@8.1.1)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0)
 
+  services/scanner:
+    dependencies:
+      '@siteprobe/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      zod:
+        specifier: ^4.0.0
+        version: 4.4.3
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.13.3
+      typescript:
+        specifier: ~6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/node@24.13.3)(lightningcss@1.33.0)(supports-color@8.1.1)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0)
+
 packages:
 
   '@adobe/css-tools@4.5.0':
@@ -7919,8 +7938,8 @@ snapshots:
       '@babel/parser': 7.29.8
       eslint: 9.39.5(supports-color@8.1.1)
       hermes-parser: 0.25.1
-      zod: 3.25.76
-      zod-validation-error: 4.0.2(zod@3.25.76)
+      zod: 4.4.3
+      zod-validation-error: 4.0.2(zod@4.4.3)
     transitivePeerDependencies:
       - supports-color
 
@@ -10511,9 +10530,9 @@ snapshots:
 
   yocto-queue@0.1.0: {}
 
-  zod-validation-error@4.0.2(zod@3.25.76):
+  zod-validation-error@4.0.2(zod@4.4.3):
     dependencies:
-      zod: 3.25.76
+      zod: 4.4.3
 
   zod@3.25.76: {}
 
