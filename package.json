@@ -22,6 +22,8 @@
     "mobile:lint": "pnpm --filter @siteprobe/mobile lint",
     "mobile:test": "pnpm --filter @siteprobe/mobile test",
     "mobile:typecheck": "pnpm --filter @siteprobe/mobile typecheck",
-    "check": "pnpm contracts:build && pnpm contracts:typecheck && pnpm contracts:test && pnpm api:typecheck && pnpm api:test && pnpm db:check && pnpm mobile:typecheck && pnpm mobile:lint && pnpm mobile:test"
+    "scanner:test": "pnpm --filter @siteprobe/scanner test",
+    "scanner:typecheck": "pnpm --filter @siteprobe/scanner typecheck",
+    "check": "pnpm contracts:build && pnpm contracts:typecheck && pnpm contracts:test && pnpm api:typecheck && pnpm api:test && pnpm db:check && pnpm scanner:typecheck && pnpm scanner:test && pnpm mobile:typecheck && pnpm mobile:lint && pnpm mobile:test"
   }
 }
