@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  scannerResultSchema,
   scannerSafetyEvaluationSchema,
   scannerValidationRequestSchema,
 } from "./scanner.js";
@@ -32,5 +33,22 @@ describe("internal scanner contracts", () => {
         reason: "UNSAFE_DNS_RESULT",
       }),
     ).toEqual({ allowed: false, reason: "UNSAFE_DNS_RESULT" });
+  });
+
+  it("bounds real scanner observations", () => {
+    const result = scannerResultSchema.parse({
+      scanId: "5d41977d-ffb9-4388-af0a-0f74c8ee64ab",
+      requestedUrl: "https://example.com/",
+      finalUrl: "https://example.com/",
+      navigationSucceeded: true,
+      httpStatus: 500,
+      pageTitle: "Example",
+      navigationDurationMs: 42,
+      consoleErrors: [],
+      pageErrors: [],
+      failedRequests: [],
+      scannedAt: "2026-08-20T00:00:00.000Z",
+    });
+    expect(result.httpStatus).toBe(500);
   });
 });

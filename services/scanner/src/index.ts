@@ -26,3 +26,23 @@ export {
 } from "./security/request-policy.js";
 export { scannerResourcePolicy, type ScannerResourcePolicy } from "./security/limits.js";
 export { parseScannerUrl, type ScannerUrl } from "./security/url-policy.js";
+export { chromiumLauncher, type BrowserLauncher } from "./browser/browser.js";
+export { createScannerContext } from "./browser/context.js";
+export {
+  runScan,
+  type ScannerRunInput,
+  type ScannerRunLimits,
+  type ScannerRunOptions,
+} from "./scan/run-scan.js";
+export {
+  boundedText,
+  createFailedRequest,
+  sanitizeTitle,
+  sanitizeUrl,
+  validateScannerResult,
+} from "./scan/result.js";
+export {
+  ScannerExecutionError,
+  scannerRunFailureCodes,
+  type ScannerRunFailureCode,
+} from "./errors.js";
