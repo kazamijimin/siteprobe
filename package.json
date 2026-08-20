@@ -18,6 +18,7 @@
     "contracts:test": "pnpm --filter @siteprobe/contracts test",
     "contracts:typecheck": "pnpm --filter @siteprobe/contracts typecheck",
     "mobile:start": "pnpm --filter @siteprobe/mobile start",
+    "mobile:web": "pnpm --filter @siteprobe/mobile exec expo start --web --port 8082",
     "mobile:android": "pnpm --filter @siteprobe/mobile android",
     "mobile:lint": "pnpm --filter @siteprobe/mobile lint",
     "mobile:test": "pnpm --filter @siteprobe/mobile test",

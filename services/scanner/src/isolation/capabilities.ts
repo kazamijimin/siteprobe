@@ -16,7 +16,7 @@ export type IsolationCapabilities = Record<IsolationCapabilityName, CapabilitySt
 
 export type IsolationAssessment = {
   approved: boolean;
-  missing: IsolationCapabilityName[];
+  missing: string[];
   capabilities: IsolationCapabilities;
 };
 
@@ -24,7 +24,7 @@ export function assessIsolationCapabilities(
   capabilities: IsolationCapabilities,
 ): IsolationAssessment {
   const missing = requiredIsolationCapabilities.filter(
-    (name) => capabilities[name] === "not-verified",
+    (name) => capabilities[name] !== "verified",
   );
   return { approved: missing.length === 0, missing, capabilities };
 }

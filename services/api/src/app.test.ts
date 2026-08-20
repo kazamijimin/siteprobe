@@ -22,6 +22,22 @@ describe("SiteProbe fake API", () => {
     expect(response.json()).toEqual({ status: "ok" });
   });
 
+  it("allows the local Expo web client to call the API", async () => {
+    const app = testApp();
+    const response = await app.inject({
+      method: "OPTIONS",
+      url: "/api/scans",
+      headers: {
+        origin: "http://localhost:8082",
+        "access-control-request-method": "POST",
+        "access-control-request-headers": "content-type",
+      },
+    });
+    expect(response.statusCode).toBe(204);
+    expect(response.headers["access-control-allow-origin"]).toBe("http://localhost:8082");
+    expect(response.headers["access-control-allow-methods"]).toContain("POST");
+  });
+
   it("creates a deterministic synthetic completed scan", async () => {
     const response = await testApp().inject({
       method: "POST",

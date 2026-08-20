@@ -1,3 +1,4 @@
+import cors from "@fastify/cors";
 import Fastify, { type FastifyInstance } from "fastify";
 import { ZodError } from "zod";
 import { healthRoutes } from "./routes/health.js";
@@ -34,6 +35,14 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const app = Fastify({
     bodyLimit: BODY_LIMIT_BYTES,
     logger: options.logger ?? false,
+  });
+  app.register(cors, {
+    origin: [
+      /^http:\/\/localhost(?::\d+)?$/,
+      /^http:\/\/127\.0\.0\.1(?::\d+)?$/,
+    ],
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Accept", "Content-Type"],
   });
   app.removeContentTypeParser("text/plain");
   const repository = options.repository ?? new InMemoryScanRepository();

@@ -101,8 +101,17 @@ are stored in the ignored `.siteprobe/` directory. Stop them with:
 .\stop.ps1
 ```
 
-Add `-IncludeMobile` to start the Expo/Metro process too. The mobile app still
-needs an emulator or device and its `apps/mobile/.env` API URL configuration.
+Add `-IncludeMobile` to start the Expo/Metro process for an emulator or device,
+or use `-IncludeWeb` to serve the Expo frontend in a browser:
+
+```powershell
+.\start.ps1 -IncludeWeb
+```
+
+The web frontend is available at `http://localhost:8082`. Browser mode
+automatically uses the local API at `http://127.0.0.1:3000`, so your Android
+emulator setting in `apps/mobile/.env` can remain `http://10.0.2.2:3000`.
+Choose only one of `-IncludeMobile` and `-IncludeWeb` per start command.
 
 Useful validation commands:
 
@@ -172,10 +181,11 @@ Authorization: Bearer <SCANNER_INTERNAL_TOKEN>
 ```
 
 Controlled mode executes only exact hostnames listed in
-`SCANNER_CONTROLLED_HOSTS`. Isolated mode requires every trusted isolation
-capability declaration. Do not put the token in Expo or any `EXPO_PUBLIC_*`
-variable. The public `POST /api/scans` route remains synthetic and does not call
-the worker.
+`SCANNER_CONTROLLED_HOSTS`. Isolated mode requires a fresh, root-owned signed
+deployment attestation plus runtime and network evidence; ordinary
+`SCANNER_CAP_*` environment values cannot make it ready. Do not put the token
+in Expo or any `EXPO_PUBLIC_*` variable. The public `POST /api/scans` route
+remains synthetic and does not call the worker.
 
 ## Deployment isolation gate
 
@@ -205,5 +215,9 @@ pnpm mobile:android
 Phase D requires PostgreSQL and Drizzle for API persistence. Phase E uses DNS only when explicitly evaluating a destination through the scanner safety API; tests inject deterministic resolvers. Phase F requires the scanner-local Playwright Chromium install for controlled tests. Phase G adds the private worker boundary, but does not wire browser execution into the public API.
 
 Phase E/F provide application-level SSRF defenses and per-request browser interception. Phase G adds authentication and a fail-closed isolation gate, but these are still not a complete network boundary. SiteProbe is not approved for public arbitrary-URL scanning until deployment adds isolated execution and network-level egress controls: no host/database/LAN/metadata access, no Docker socket or sensitive mounts, non-root execution, Chromium sandboxing, resource limits, deadlines, and controls to address DNS rebinding.
-#   s i t e p r o b e  
- 
+
+Phase G.5 repository-side deployment definitions live under
+`infra/scanner-vm/`. They describe the Linux VM systemd boundary, nftables
+default-deny policy, controlled DNS, mandatory proxy, and canary verification
+scripts. They are not applied to this Windows machine; isolated readiness stays
+`503` until the real VM produces trusted evidence.

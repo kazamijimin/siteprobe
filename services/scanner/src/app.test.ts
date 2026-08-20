@@ -21,6 +21,10 @@ function config(overrides: Partial<ScannerConfig> = {}): ScannerConfig {
     internalToken: token,
     executionMode: "controlled",
     controlledHosts: ["fixture.invalid"],
+    egressProxyUrl: "",
+    attestationPath: "/etc/siteprobe/scanner-attestation.json",
+    attestationPublicKeyPath: "/etc/siteprobe/scanner-attestation.pub",
+    browserSandboxEvidencePath: "/run/siteprobe/chromium-sandbox.verified",
     isolationCapabilities,
     ...overrides,
   };
@@ -141,6 +145,19 @@ describe("private scanner HTTP worker", () => {
     expect(response.statusCode).toBe(503);
     expect(response.json().error.code).toBe("ISOLATION_NOT_READY");
     expect(calls).toBe(0);
+  });
+
+  it("reports machine-readable isolated readiness checks", async () => {
+    const app = scannerApp(async () => {
+      throw new Error("must not run");
+    }, config({ executionMode: "isolated" }));
+    const response = await app.inject({ method: "GET", url: "/ready" });
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toMatchObject({
+      status: "not-ready",
+      reason: "ATTESTATION_INVALID",
+      checks: { attestationValid: false, networkIsolation: false },
+    });
   });
 
   it("rejects a second scan while one worker slot is active", async () => {

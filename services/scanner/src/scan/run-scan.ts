@@ -45,6 +45,8 @@ export type ScannerRunOptions = {
   now?: () => Date;
   /** Test-only fixture routing. Production callers must leave this unset. */
   testOnlyRouteHandler?: TestOnlyRouteHandler;
+  /** Required for isolated deployments; controlled mode intentionally leaves this unset. */
+  proxyServer?: string;
 };
 
 type MutableResources = {
@@ -169,7 +171,9 @@ async function executeScan(
   if (isCancelled()) throw new ScannerExecutionError("JOB_TIMEOUT", "Scanner job timed out");
 
   try {
-    resources.browser = await (options.browserLauncher ?? chromiumLauncher).launch();
+    resources.browser = await (options.browserLauncher ?? chromiumLauncher).launch({
+      proxyServer: options.proxyServer,
+    });
   } catch {
     throw new ScannerExecutionError("BROWSER_LAUNCH_FAILED", "Chromium could not be launched");
   }
