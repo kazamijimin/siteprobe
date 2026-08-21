@@ -2,7 +2,7 @@
 
 SiteProbe is a mobile-first website QA platform. The long-term product will submit website targets from an Expo application to a backend that runs isolated browser checks.
 
-## Current status: Product Phase P3
+## Current status: Product Phase P4
 
 - Phase A — Expo/Metro/Hermes foundation
 - Phase B — Shared contracts and fake Fastify API
@@ -14,6 +14,7 @@ SiteProbe is a mobile-first website QA platform. The long-term product will subm
 - Product Phase P1 — Persistent scan history and improved synthetic results
 - Product Phase P2 — Server-backed scan-history search
 - Product Phase P3 — Controlled QA evaluator
+- Product Phase P4 — QA evaluation persistence and authenticated internal retrieval
 
 Phase A established the Expo mobile foundation:
 
@@ -27,7 +28,7 @@ Phase A established the Expo mobile foundation:
 
 The app contains a Home scan form, searchable persistent Scan History route, and validated Scan Result route.
 
-Phase B added the platform-neutral Zod contracts and a local-only Fastify fake API. Phase C connects the Expo client to that API: Home creates a scan, the server-created ID drives navigation, and the Result screen retrieves and validates the scan independently. Product Phase P1 adds persisted history with bounded cursor pagination and keeps the result experience explicitly synthetic. Product Phase P2 adds server-backed, case-insensitive literal search across persisted requested and normalized URLs while preserving cursor pagination. Product Phase P3 adds a deterministic in-process QA evaluator for `ScannerResult` objects produced by controlled fixture scans. It is not exposed through the public API, mobile application, or private scanner worker response.
+Phase B added the platform-neutral Zod contracts and a local-only Fastify fake API. Phase C connects the Expo client to that API: Home creates a scan, the server-created ID drives navigation, and the Result screen retrieves and validates the scan independently. Product Phase P1 adds persisted history with bounded cursor pagination and keeps the result experience explicitly synthetic. Product Phase P2 adds server-backed, case-insensitive literal search across persisted requested and normalized URLs while preserving cursor pagination. Product Phase P3 adds a deterministic in-process QA evaluator for `ScannerResult` objects produced by controlled fixture scans. Product Phase P4 adds shared versioned QA contracts and an independent PostgreSQL JSONB snapshot repository behind authenticated internal POST/GET routes. Neither phase exposes evaluations through public scans, mobile, or the scanner worker.
 
 Phase D replaces the API's in-memory repository with PostgreSQL persistence through Drizzle ORM and versioned SQL migrations. Phase E adds the scanner safety boundary: URL policy, DNS/IP classification, redirect validation, passive request policy, and resource limits. Phase F adds a controlled Chromium engine that reuses those checks and returns internal observations. Phase G adds a loopback-only authenticated scanner worker, a fail-closed isolation gate, and an API-side client that is deliberately not used by the public route.
 
@@ -156,10 +157,9 @@ safety policy applied to every request.
 
 Product Phase P3 evaluates those controlled `ScannerResult` observations with six
 deterministic QA rules covering navigation, document title presence, runtime
-errors, and failed requests. It produces internal structured findings only; it
-does not calculate a score, persist findings, or connect the evaluator to the
-public API. Public scan summaries remain synthetic and arbitrary public URL
-scanning remains disabled.
+errors, and failed requests. Product Phase P4 persists complete evaluator
+snapshots only through authenticated internal QA routes. It does not calculate a
+score, modify public scan behavior, or connect arbitrary URLs to a scanner.
 
 The scanner package does not currently expose a public HTTP endpoint or a
 standalone production scan command. Do not wire it to mobile/API requests until

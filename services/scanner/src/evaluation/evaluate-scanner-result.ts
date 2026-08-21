@@ -1,87 +1,21 @@
 import type {
+  QaCategory,
+  QaEvaluation,
+  QaEvidence,
+  QaFinding,
+  QaFindingStatus,
+  QaSeverity,
   ScannerResult,
-  ScannerRunFailureCode,
 } from "@siteprobe/contracts";
 
 import { boundedText } from "../scan/result.js";
 
-export type QaCategory =
-  | "navigation"
-  | "document"
-  | "runtime"
-  | "network";
+export type { QaCategory, QaEvaluation, QaEvidence, QaFailedRequestEvidence, QaFinding, QaFindingStatus, QaRuleId, QaSeverity } from "@siteprobe/contracts";
 
-export type QaRuleId =
-  | "NAVIGATION_COMPLETED"
-  | "HTTP_STATUS_ACCEPTABLE"
-  | "DOCUMENT_TITLE_PRESENT"
-  | "NO_CONSOLE_ERRORS"
-  | "NO_PAGE_ERRORS"
-  | "NO_FAILED_REQUESTS";
-
-export type QaFindingStatus = "passed" | "failed" | "notApplicable";
-export type QaSeverity = "info" | "warning" | "critical";
-
-export type QaFailedRequestEvidence = Readonly<{
-  url: string;
-  method: string;
-  resourceType: string;
-  failureReason: string;
-}>;
-
-export type QaEvidence =
-  | Readonly<{
-      kind: "navigation";
-      navigationSucceeded: boolean;
-      failureCode: ScannerRunFailureCode | null;
-      requestedUrl: string;
-      finalUrl: string | null;
-      navigationDurationMs: number;
-    }>
-  | Readonly<{
-      kind: "httpStatus";
-      value: number | null;
-    }>
-  | Readonly<{
-      kind: "title";
-      present: boolean;
-      characterCount: number;
-    }>
-  | Readonly<{
-      kind: "messages";
-      recordedCount: number;
-      samples: readonly string[];
-      samplesTruncated: boolean;
-    }>
-  | Readonly<{
-      kind: "failedRequests";
-      recordedCount: number;
-      samples: readonly QaFailedRequestEvidence[];
-      samplesTruncated: boolean;
-    }>;
-
-export type QaFinding = Readonly<{
-  ruleId: QaRuleId;
-  category: QaCategory;
-  status: QaFindingStatus;
-  severity: QaSeverity;
-  title: string;
-  description: string;
-  evidence: QaEvidence;
-}>;
-
-export type QaEvaluation = Readonly<{
-  findings: readonly QaFinding[];
-  summary: Readonly<{
-    critical: number;
-    warnings: number;
-    passed: number;
-    notApplicable: number;
-  }>;
-}>;
+type EvaluatorRuleId = QaFinding["ruleId"];
 
 type QaRule = Readonly<{
-  ruleId: QaRuleId;
+  ruleId: EvaluatorRuleId;
   category: QaCategory;
   title: string;
 }>;

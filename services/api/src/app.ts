@@ -3,8 +3,10 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { ZodError } from "zod";
 import { healthRoutes } from "./routes/health.js";
 import { scanRoutes } from "./routes/scans.js";
+import { qaEvaluationRoutes } from "./routes/qa-evaluations.js";
 import { InMemoryScanRepository, type ScanRepository } from "./repository.js";
 import type { ScannerClient } from "./scanner/client.js";
+import { InMemoryQaEvaluationRepository, type QaEvaluationRepository } from "./evaluations/repository.js";
 
 const BODY_LIMIT_BYTES = 16 * 1024;
 
@@ -29,6 +31,8 @@ export type BuildAppOptions = {
   logger?: boolean;
   /** Phase G prepares this boundary; public routes intentionally do not use it yet. */
   scannerClient?: ScannerClient;
+  qaEvaluationRepository?: QaEvaluationRepository;
+  qaEvaluationInternalToken?: string;
 };
 
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
@@ -89,5 +93,9 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   app.register(healthRoutes);
   app.register(scanRoutes(repository));
+  app.register(qaEvaluationRoutes({
+    repository: options.qaEvaluationRepository ?? new InMemoryQaEvaluationRepository(),
+    token: options.qaEvaluationInternalToken,
+  }));
   return app;
 }

@@ -1,6 +1,7 @@
 # SiteProbe API
 
-The API owns PostgreSQL persistence for the Phase D `scans` table.
+The API owns PostgreSQL persistence for the Phase D `scans` table and the
+independent Product Phase P4 `qa_evaluations` JSONB snapshot table.
 
 1. Copy `.env.example` to `.env`.
 2. Set `DATABASE_URL` to a dedicated local PostgreSQL database.
@@ -12,6 +13,7 @@ Phase G also provides an additive API scanner client configuration:
 ```env
 SCANNER_URL=http://127.0.0.1:3100
 SCANNER_INTERNAL_TOKEN=
+QA_EVALUATION_INTERNAL_TOKEN=
 ```
 
 These values are server-side only. The client is tested but intentionally not
@@ -49,3 +51,19 @@ Local browser development requests from `http://localhost:<port>` and
 are enabled.
 
 Use `SITEPROBE_TEST_DATABASE_URL` for the opt-in PostgreSQL integration tests. Point it at a disposable dedicated test database; ordinary `pnpm check` and API route tests do not require a live database.
+
+Product Phase P4 exposes only authenticated internal persistence routes:
+
+```text
+POST /internal/qa-evaluations
+GET  /internal/qa-evaluations/:id
+Authorization: Bearer <QA_EVALUATION_INTERNAL_TOKEN>
+```
+
+The token is server-only. If it is not configured, these routes return `503`
+while the public API remains available. Creates are immutable and idempotent on
+`(scannerRunId, evaluatorVersion)`; equivalent retries return `200`, conflicting
+payloads return `409`, and stored contract corruption returns `500`. The routes
+accept complete evaluator snapshots only—there is no URL-only ingestion, public
+evaluation route, update/delete endpoint, score, scanner call, DNS lookup, or
+browser launch.

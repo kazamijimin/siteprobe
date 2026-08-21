@@ -16,6 +16,11 @@ describe("API configuration", () => {
       databaseUrl: "postgresql://siteprobe@127.0.0.1:5432/siteprobe",
       scannerUrl: "http://127.0.0.1:3100",
       scannerInternalToken: undefined,
+      qaEvaluationInternalToken: undefined,
     });
+  });
+
+  it("keeps the QA evaluation token optional and server-side", () => {
+    expect(loadConfig({ DATABASE_URL: "postgresql://siteprobe@127.0.0.1:5432/siteprobe", QA_EVALUATION_INTERNAL_TOKEN: "qa-secret" }).qaEvaluationInternalToken).toBe("qa-secret");
   });
 });

@@ -73,3 +73,8 @@ private scanner worker response. It does not persist findings or calculate a
 score. Public scan summaries remain synthetic, arbitrary public URL scanning
 remains disabled, and Phase H remains deferred pending verified scanner
 isolation.
+
+Product Phase P4 keeps the evaluator pure while importing its QA types from
+`@siteprobe/contracts`. The API owns the separate `qa_evaluations` persistence
+boundary; the scanner has no PostgreSQL dependency or database credentials and
+does not call the internal persistence routes.
