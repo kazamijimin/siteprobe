@@ -98,3 +98,10 @@ It never exposes selectors, raw axe data, help URLs, score, grade, or a
 compliance percentage. Automated accessibility checks are not equivalent to
 full WCAG conformance testing. Phase H remains deferred pending verified
 isolation.
+
+Product Phase P11 adds read-only navigation between paired controlled detail
+screens. When both persisted records exist and both API read gates allow the
+relationship, QA detail shows `View Accessibility Evaluation` and accessibility
+detail shows `View Core QA Evaluation`. Missing or gate-disabled relationships
+hide the action; buttons navigate only to SiteProbe routes and never open target
+or fixture URLs. `scannerRunId` is never sent to or displayed by mobile.

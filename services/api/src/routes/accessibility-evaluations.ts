@@ -10,6 +10,7 @@ import {
   accessibilityEvaluationResponseSchema,
   listAccessibilityEvaluationsQuerySchema,
   listAccessibilityEvaluationsResponseSchema,
+  QA_EVALUATOR_VERSION,
   type AccessibilityEvaluationCreate,
   type AccessibilityEvaluationResponse,
 } from "@siteprobe/contracts";
@@ -18,6 +19,7 @@ import {
   AccessibilityEvaluationPersistenceCorruptionError,
   type AccessibilityEvaluationRepository,
 } from "../accessibility-evaluations/repository.js";
+import type { QaEvaluationRepository } from "../evaluations/repository.js";
 
 const ACCESSIBILITY_BODY_LIMIT_BYTES = 64 * 1024;
 
@@ -25,6 +27,8 @@ type AccessibilityRouteOptions = {
   repository: AccessibilityEvaluationRepository;
   token: string | undefined;
   publicReadEnabled: boolean;
+  qaRepository: QaEvaluationRepository;
+  qaPublicReadEnabled: boolean;
 };
 
 function errorEnvelope(code: string, message: string, requestId: string, details?: Array<{ path: string; message: string }>) {
@@ -170,11 +174,19 @@ export const accessibilityEvaluationRoutes = (options: AccessibilityRouteOptions
 
     const evaluation = await options.repository.findById(params.data.id);
     if (!evaluation) return reply.code(404).send(errorEnvelope("NOT_FOUND", "Accessibility evaluation not found", request.id));
-    return reply.code(200).send(projectPublicAccessibilityEvaluation(evaluation));
+    let relatedQaEvaluationId: string | null = null;
+    if (options.qaPublicReadEnabled) {
+      const related = await options.qaRepository.findByScannerRun(
+        evaluation.scannerRunId,
+        QA_EVALUATOR_VERSION,
+      );
+      relatedQaEvaluationId = related?.id ?? null;
+    }
+    return reply.code(200).send(projectPublicAccessibilityEvaluation(evaluation, relatedQaEvaluationId));
   });
 };
 
-function projectPublicAccessibilityEvaluation(evaluation: AccessibilityEvaluationResponse) {
+function projectPublicAccessibilityEvaluation(evaluation: AccessibilityEvaluationResponse, relatedQaEvaluationId: string | null) {
   const projected = accessibilityEvaluationPublicResponseSchema.safeParse({
     id: evaluation.id,
     source: evaluation.source,
@@ -192,6 +204,7 @@ function projectPublicAccessibilityEvaluation(evaluation: AccessibilityEvaluatio
       rulesetTags: evaluation.rulesetTags,
     },
     evaluation: evaluation.evaluation,
+    relatedQaEvaluationId,
   });
   if (!projected.success) {
     throw new AccessibilityEvaluationPersistenceCorruptionError("Stored accessibility evaluation failed public contract validation", { cause: projected.error });

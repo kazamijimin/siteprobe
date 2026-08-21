@@ -220,6 +220,7 @@ export const accessibilityEvaluationPublicResponseSchema = z.object({
   createdAt: z.string().datetime({ offset: true }),
   engine: accessibilityEngineMetadataSchema,
   evaluation: publicAccessibilityEvaluationSchema,
+  relatedQaEvaluationId: z.string().uuid().nullable(),
 }).strict().superRefine(assertMetadataConsistency);
 
 const accessibilityEvaluationListEngineSchema = z.object({

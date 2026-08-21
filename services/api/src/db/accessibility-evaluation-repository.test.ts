@@ -108,6 +108,8 @@ describeDatabase("PostgreSQL accessibility evaluation persistence", () => {
     const value = input(); const id = randomUUID(); ids.push(id);
     await connection.db.insert(accessibilityEvaluations).values({ id, scannerRunId: value.scannerRunId, source: "controlled-scanner", schemaVersion: 1, evaluatorVersion: 1, engine: "axe-core", engineVersion: "4.12.0", requestedUrl: value.requestedUrl, finalUrl: value.finalUrl, scannedAt: new Date(value.scannedAt), evaluationJson: { evaluation: value.evaluation, adapter: value.adapter, adapterVersion: value.adapterVersion, rulesetTags: value.rulesetTags } });
     await expect(connection.db.select({ id: accessibilityEvaluations.id }).from(accessibilityEvaluations).where(eq(accessibilityEvaluations.id, id))).resolves.toEqual([{ id }]);
+    await expect(repository.findByScannerRun(value.scannerRunId, 1, "4.13.0")).resolves.toBeUndefined();
+    await expect(repository.findByScannerRun(value.scannerRunId, 2, "4.12.0")).resolves.toBeUndefined();
     await connection.db.update(accessibilityEvaluations).set({ evaluationJson: {} as never }).where(eq(accessibilityEvaluations.id, id));
     await expect(repository.findById(id)).rejects.toThrow(AccessibilityEvaluationPersistenceCorruptionError);
   });

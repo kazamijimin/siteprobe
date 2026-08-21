@@ -115,6 +115,25 @@ token or database credentials. P7 uses in-process `fixture.invalid` route
 fulfillment and does not use the private scanner worker. Phase H remains
 deferred pending verified isolation.
 
+## Product Phase P11 evaluation cross-links
+
+P11 extends the existing public detail responses with nullable related IDs:
+
+```text
+GET /api/qa-evaluations/:id
+  relatedAccessibilityEvaluationId: uuid | null
+
+GET /api/accessibility-evaluations/:id
+  relatedQaEvaluationId: uuid | null
+```
+
+The API resolves the shared scanner run internally using the current evaluator
+versions only. Each related ID is exposed only when the related domain's
+public-read flag is enabled; missing pairs return `null`. `scannerRunId` and
+the other evaluation's content are never exposed. Cross-link reads do not run
+a scanner, axe, Playwright, fixture, target request, or database write. No
+migration or schema change is required.
+
 ## Product Phase P8 accessibility persistence
 
 P8 adds the independent `accessibility_evaluations` JSONB snapshot table and

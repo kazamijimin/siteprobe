@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ControlledQaEvaluationCreate } from "@siteprobe/contracts";
+import type { AccessibilityEvaluationCreate, ControlledQaEvaluationCreate } from "@siteprobe/contracts";
 import { buildApp } from "../app.js";
 import { InMemoryQaEvaluationRepository, QaEvaluationPersistenceCorruptionError, type QaEvaluationRepository } from "../evaluations/repository.js";
+import { AccessibilityEvaluationPersistenceCorruptionError, InMemoryAccessibilityEvaluationRepository, type AccessibilityEvaluationRepository } from "../accessibility-evaluations/repository.js";
 
 const token = "qa-test-token-which-is-long-enough";
 const body: ControlledQaEvaluationCreate = {
@@ -21,6 +22,31 @@ const body: ControlledQaEvaluationCreate = {
       { ruleId: "NO_FAILED_REQUESTS", category: "network", status: "passed", severity: "info", title: "No failed requests", description: "ok", evidence: { kind: "failedRequests", recordedCount: 0, samples: [], samplesTruncated: false } },
     ],
     summary: { critical: 0, warnings: 0, passed: 6, notApplicable: 0 },
+  },
+};
+
+const accessibilityBody: AccessibilityEvaluationCreate = {
+  schemaVersion: 1,
+  evaluatorVersion: 1,
+  scannerRunId: body.scannerRunId,
+  requestedUrl: "http://fixture.invalid/accessibility-clean",
+  finalUrl: "http://fixture.invalid/accessibility-clean",
+  scannedAt: body.scannedAt,
+  engine: "axe-core",
+  engineVersion: "4.13.0",
+  adapter: "@axe-core/playwright",
+  adapterVersion: "4.13.0",
+  rulesetTags: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"],
+  evaluation: {
+    status: "notApplicable",
+    reason: "navigationFailed",
+    summary: { violationRules: 0, violationNodes: 0, critical: 0, serious: 0, moderate: 0, minor: 0, unknownImpact: 0, needsReviewRules: 0, needsReviewNodes: 0 },
+    violations: [],
+    needsReview: [],
+    violationsTruncated: false,
+    needsReviewTruncated: false,
+    countsCapped: false,
+    payloadTruncated: false,
   },
 };
 
@@ -141,6 +167,7 @@ describe("development-gated public QA evaluation route", () => {
       scannedAt: created.scannedAt,
       evaluation: created.evaluation,
       createdAt: created.createdAt,
+      relatedAccessibilityEvaluationId: null,
     });
     expect(response.json()).not.toHaveProperty("scannerRunId");
     expect(response.json()).not.toHaveProperty("score");
@@ -151,6 +178,42 @@ describe("development-gated public QA evaluation route", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     await app.close();
     vi.unstubAllGlobals();
+  });
+
+  it("resolves a paired accessibility ID only when its public gate is enabled", async () => {
+    const qaSource = new InMemoryQaEvaluationRepository();
+    const accessibilitySource = new InMemoryAccessibilityEvaluationRepository();
+    const qaCreated = qaSource.create(body).evaluation;
+    const accessibilityCreated = accessibilitySource.create(accessibilityBody).evaluation;
+    const qaRepository: QaEvaluationRepository = { create: vi.fn(qaSource.create.bind(qaSource)), findById: vi.fn(qaSource.findById.bind(qaSource)), findByScannerRun: vi.fn(qaSource.findByScannerRun.bind(qaSource)), list: vi.fn(qaSource.list.bind(qaSource)) };
+    const accessibilityRepository: AccessibilityEvaluationRepository = { create: vi.fn(accessibilitySource.create.bind(accessibilitySource)), findById: vi.fn(accessibilitySource.findById.bind(accessibilitySource)), findByScannerRun: vi.fn(accessibilitySource.findByScannerRun.bind(accessibilitySource)), list: vi.fn(accessibilitySource.list.bind(accessibilitySource)) };
+    const app = buildApp({ logger: false, qaEvaluationRepository: qaRepository, accessibilityEvaluationRepository: accessibilityRepository, qaEvaluationPublicReadEnabled: true, accessibilityEvaluationPublicReadEnabled: true });
+    const paired = await app.inject({ method: "GET", url: `/api/qa-evaluations/${qaCreated.id}` });
+    expect(paired.statusCode).toBe(200);
+    expect(paired.json().relatedAccessibilityEvaluationId).toBe(accessibilityCreated.id);
+    expect(paired.json()).not.toHaveProperty("scannerRunId");
+    expect(accessibilityRepository.findByScannerRun).toHaveBeenCalledWith(body.scannerRunId, 1, "4.13.0");
+    await app.close();
+
+    const disabledApp = buildApp({ logger: false, qaEvaluationRepository: qaRepository, accessibilityEvaluationRepository: accessibilityRepository, qaEvaluationPublicReadEnabled: true, accessibilityEvaluationPublicReadEnabled: false });
+    const disabled = await disabledApp.inject({ method: "GET", url: `/api/qa-evaluations/${qaCreated.id}` });
+    expect(disabled.statusCode).toBe(200);
+    expect(disabled.json().relatedAccessibilityEvaluationId).toBeNull();
+    await disabledApp.close();
+
+    const missingAccessibility = new InMemoryAccessibilityEvaluationRepository();
+    const missingApp = buildApp({ logger: false, qaEvaluationRepository: qaRepository, accessibilityEvaluationRepository: missingAccessibility, qaEvaluationPublicReadEnabled: true, accessibilityEvaluationPublicReadEnabled: true });
+    const missing = await missingApp.inject({ method: "GET", url: `/api/qa-evaluations/${qaCreated.id}` });
+    expect(missing.statusCode).toBe(200);
+    expect(missing.json().relatedAccessibilityEvaluationId).toBeNull();
+    await missingApp.close();
+
+    const corruptRepository: AccessibilityEvaluationRepository = { create: accessibilityRepository.create, findById: accessibilityRepository.findById, findByScannerRun: () => { throw new AccessibilityEvaluationPersistenceCorruptionError("corrupt"); }, list: accessibilityRepository.list };
+    const corruptApp = buildApp({ logger: false, qaEvaluationRepository: qaRepository, accessibilityEvaluationRepository: corruptRepository, qaEvaluationPublicReadEnabled: true, accessibilityEvaluationPublicReadEnabled: true });
+    const corrupt = await corruptApp.inject({ method: "GET", url: `/api/qa-evaluations/${qaCreated.id}` });
+    expect(corrupt.statusCode).toBe(500);
+    expect(corrupt.json().error.code).toBe("INTERNAL_ERROR");
+    await corruptApp.close();
   });
 
   it("validates IDs, reports missing records, and hides persisted corruption", async () => {

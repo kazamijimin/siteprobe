@@ -85,9 +85,12 @@ describe("controlled QA evaluation contracts", () => {
       scannedAt: create.scannedAt,
       evaluation: create.evaluation,
       createdAt: create.scannedAt,
+      relatedAccessibilityEvaluationId: null,
     };
 
     expect(controlledQaEvaluationPublicResponseSchema.parse(response)).toEqual(response);
+    expect(controlledQaEvaluationPublicResponseSchema.parse({ ...response, relatedAccessibilityEvaluationId: create.scannerRunId }).relatedAccessibilityEvaluationId).toBe(create.scannerRunId);
+    expect(() => controlledQaEvaluationPublicResponseSchema.parse({ ...response, relatedAccessibilityEvaluationId: "not-a-uuid" })).toThrow();
     expect(() => controlledQaEvaluationPublicResponseSchema.parse({ ...response, scannerRunId: create.scannerRunId })).toThrow();
     expect(() => controlledQaEvaluationPublicResponseSchema.parse({ ...response, score: 87 })).toThrow();
     expect(() => controlledQaEvaluationPublicResponseSchema.parse({ ...response, evaluation: { ...response.evaluation, findings: [...response.evaluation.findings].reverse() } })).toThrow();
@@ -111,6 +114,7 @@ describe("controlled QA evaluation contracts", () => {
           : finding),
       },
     })).toThrow();
+    expect(() => controlledQaEvaluationPublicResponseSchema.parse({ ...response, relatedAccessibilityEvaluationId: null, scannerRunId: create.scannerRunId })).toThrow();
   });
 
   it("validates the reduced strict list projection and rejects detail-only fields", () => {

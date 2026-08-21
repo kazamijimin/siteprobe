@@ -135,6 +135,7 @@ describe("accessibility evaluation contracts", () => {
       finalUrl: "http://fixture.invalid/accessibility-clean",
       scannedAt: "2026-08-21T00:00:00.000Z",
       createdAt: "2026-08-21T00:01:00.000Z",
+      relatedQaEvaluationId: null,
       engine: {
         engine: "axe-core",
         engineVersion: "4.13.0",
@@ -144,6 +145,9 @@ describe("accessibility evaluation contracts", () => {
       },
       evaluation: { status: "completed", summary: emptySummary, violations: [], needsReview: [], violationsTruncated: false, needsReviewTruncated: false, countsCapped: false, payloadTruncated: false },
     });
+    expect(response.relatedQaEvaluationId).toBeNull();
+    expect(accessibilityEvaluationPublicResponseSchema.parse({ ...response, relatedQaEvaluationId: response.id }).relatedQaEvaluationId).toBe(response.id);
+    expect(() => accessibilityEvaluationPublicResponseSchema.parse({ ...response, relatedQaEvaluationId: "not-a-uuid" })).toThrow();
     expect(response).not.toHaveProperty("scannerRunId");
     expect(() => accessibilityEvaluationPublicResponseSchema.parse({ ...response, scannerRunId: response.id })).toThrow();
     expect(() => accessibilityEvaluationPublicResponseSchema.parse({ ...response, raw: { html: "<img>" }, helpUrl: "https://example.invalid" })).toThrow();

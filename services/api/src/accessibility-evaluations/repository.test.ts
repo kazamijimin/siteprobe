@@ -55,6 +55,8 @@ describe("in-memory accessibility evaluation repository", () => {
     expect(created.created).toBe(true);
     expect(await repository.findById(created.evaluation.id)).toEqual(created.evaluation);
     expect(await repository.findByScannerRun(value.scannerRunId, 1, "4.13.0")).toEqual(created.evaluation);
+    expect(await repository.findByScannerRun(value.scannerRunId, 2, "4.13.0")).toBeUndefined();
+    expect(await repository.findByScannerRun("6d41977d-ffb9-4388-af0a-0f74c8ee64ab", 1, "4.13.0")).toBeUndefined();
     expect(await repository.create(structuredClone(value))).toEqual({ evaluation: created.evaluation, created: false });
   });
 

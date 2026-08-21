@@ -55,6 +55,8 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   });
   app.removeContentTypeParser("text/plain");
   const repository = options.repository ?? new InMemoryScanRepository();
+  const qaEvaluationRepository = options.qaEvaluationRepository ?? new InMemoryQaEvaluationRepository();
+  const accessibilityEvaluationRepository = options.accessibilityEvaluationRepository ?? new InMemoryAccessibilityEvaluationRepository();
 
   app.setErrorHandler((error, request, reply) => {
     const apiError = error as { code?: string; validation?: unknown };
@@ -99,14 +101,18 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   app.register(healthRoutes);
   app.register(scanRoutes(repository));
   app.register(qaEvaluationRoutes({
-    repository: options.qaEvaluationRepository ?? new InMemoryQaEvaluationRepository(),
+    repository: qaEvaluationRepository,
     token: options.qaEvaluationInternalToken,
     publicReadEnabled: options.qaEvaluationPublicReadEnabled ?? false,
+    accessibilityRepository: accessibilityEvaluationRepository,
+    accessibilityPublicReadEnabled: options.accessibilityEvaluationPublicReadEnabled ?? false,
   }));
   app.register(accessibilityEvaluationRoutes({
-    repository: options.accessibilityEvaluationRepository ?? new InMemoryAccessibilityEvaluationRepository(),
+    repository: accessibilityEvaluationRepository,
     token: options.qaEvaluationInternalToken,
     publicReadEnabled: options.accessibilityEvaluationPublicReadEnabled ?? false,
+    qaRepository: qaEvaluationRepository,
+    qaPublicReadEnabled: options.qaEvaluationPublicReadEnabled ?? false,
   }));
   return app;
 }

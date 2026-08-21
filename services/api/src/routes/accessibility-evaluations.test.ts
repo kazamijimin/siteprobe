@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import type { AccessibilityEvaluationCreate } from "@siteprobe/contracts";
+import type { AccessibilityEvaluationCreate, ControlledQaEvaluationCreate } from "@siteprobe/contracts";
 import { buildApp } from "../app.js";
 import { AccessibilityEvaluationPersistenceCorruptionError, InMemoryAccessibilityEvaluationRepository, type AccessibilityEvaluationRepository } from "../accessibility-evaluations/repository.js";
+import { InMemoryQaEvaluationRepository, QaEvaluationPersistenceCorruptionError, type QaEvaluationRepository } from "../evaluations/repository.js";
 
 const token = "qa-test-token-which-is-long-enough";
 const body: AccessibilityEvaluationCreate = {
@@ -25,6 +26,26 @@ const body: AccessibilityEvaluationCreate = {
     needsReviewTruncated: false,
     countsCapped: false,
     payloadTruncated: false,
+  },
+};
+
+const qaBody: ControlledQaEvaluationCreate = {
+  schemaVersion: 1,
+  evaluatorVersion: 1,
+  scannerRunId: body.scannerRunId,
+  requestedUrl: body.requestedUrl,
+  finalUrl: body.finalUrl,
+  scannedAt: body.scannedAt,
+  evaluation: {
+    findings: [
+      { ruleId: "NAVIGATION_COMPLETED", category: "navigation", status: "notApplicable", severity: "info", title: "Navigation", description: "Navigation was not evaluated.", evidence: { kind: "navigation", navigationSucceeded: false, failureCode: "NAVIGATION_FAILED", requestedUrl: body.requestedUrl, finalUrl: body.finalUrl, navigationDurationMs: 0 } },
+      { ruleId: "HTTP_STATUS_ACCEPTABLE", category: "navigation", status: "notApplicable", severity: "info", title: "HTTP status", description: "Status was not evaluated.", evidence: { kind: "httpStatus", value: null } },
+      { ruleId: "DOCUMENT_TITLE_PRESENT", category: "document", status: "notApplicable", severity: "info", title: "Title", description: "Title was not evaluated.", evidence: { kind: "title", present: false, characterCount: 0 } },
+      { ruleId: "NO_CONSOLE_ERRORS", category: "runtime", status: "notApplicable", severity: "info", title: "Console", description: "Console was not evaluated.", evidence: { kind: "messages", recordedCount: 0, samples: [], samplesTruncated: false } },
+      { ruleId: "NO_PAGE_ERRORS", category: "runtime", status: "notApplicable", severity: "info", title: "Page errors", description: "Page errors were not evaluated.", evidence: { kind: "messages", recordedCount: 0, samples: [], samplesTruncated: false } },
+      { ruleId: "NO_FAILED_REQUESTS", category: "network", status: "notApplicable", severity: "info", title: "Requests", description: "Requests were not evaluated.", evidence: { kind: "failedRequests", recordedCount: 0, samples: [], samplesTruncated: false } },
+    ],
+    summary: { critical: 0, warnings: 0, passed: 0, notApplicable: 6 },
   },
 };
 
@@ -170,6 +191,7 @@ describe("development-gated public accessibility evaluation route", () => {
       finalUrl: created.finalUrl,
       engine: { engine: "axe-core", engineVersion: "4.13.0", adapter: "@axe-core/playwright", adapterVersion: "4.13.0", rulesetTags: body.rulesetTags },
       evaluation: body.evaluation,
+      relatedQaEvaluationId: null,
     }));
     expect(response.json()).not.toHaveProperty("scannerRunId");
     expect(response.json()).not.toHaveProperty("helpUrl");
@@ -177,6 +199,41 @@ describe("development-gated public accessibility evaluation route", () => {
     expect(repository.findById).toHaveBeenCalledTimes(1);
     expect(repository.create).not.toHaveBeenCalled();
     await app.close();
+  });
+
+  it("resolves a paired QA ID only when the QA public gate is enabled", async () => {
+    const accessibilitySource = new InMemoryAccessibilityEvaluationRepository();
+    const qaSource = new InMemoryQaEvaluationRepository();
+    const accessibilityCreated = accessibilitySource.create(body).evaluation;
+    const qaCreated = qaSource.create(qaBody).evaluation;
+    const accessibilityRepository: AccessibilityEvaluationRepository = { create: vi.fn(accessibilitySource.create.bind(accessibilitySource)), findById: vi.fn(accessibilitySource.findById.bind(accessibilitySource)), findByScannerRun: vi.fn(accessibilitySource.findByScannerRun.bind(accessibilitySource)), list: vi.fn(accessibilitySource.list.bind(accessibilitySource)) };
+    const qaRepository: QaEvaluationRepository = { create: vi.fn(qaSource.create.bind(qaSource)), findById: vi.fn(qaSource.findById.bind(qaSource)), findByScannerRun: vi.fn(qaSource.findByScannerRun.bind(qaSource)), list: vi.fn(qaSource.list.bind(qaSource)) };
+    const app = buildApp({ logger: false, accessibilityEvaluationRepository: accessibilityRepository, qaEvaluationRepository: qaRepository, accessibilityEvaluationPublicReadEnabled: true, qaEvaluationPublicReadEnabled: true });
+    const paired = await app.inject({ method: "GET", url: `/api/accessibility-evaluations/${accessibilityCreated.id}` });
+    expect(paired.statusCode).toBe(200);
+    expect(paired.json().relatedQaEvaluationId).toBe(qaCreated.id);
+    expect(paired.json()).not.toHaveProperty("scannerRunId");
+    expect(qaRepository.findByScannerRun).toHaveBeenCalledWith(body.scannerRunId, 1);
+    await app.close();
+
+    const disabledApp = buildApp({ logger: false, accessibilityEvaluationRepository: accessibilityRepository, qaEvaluationRepository: qaRepository, accessibilityEvaluationPublicReadEnabled: true, qaEvaluationPublicReadEnabled: false });
+    const disabled = await disabledApp.inject({ method: "GET", url: `/api/accessibility-evaluations/${accessibilityCreated.id}` });
+    expect(disabled.statusCode).toBe(200);
+    expect(disabled.json().relatedQaEvaluationId).toBeNull();
+    await disabledApp.close();
+
+    const missingApp = buildApp({ logger: false, accessibilityEvaluationRepository: accessibilityRepository, qaEvaluationRepository: new InMemoryQaEvaluationRepository(), accessibilityEvaluationPublicReadEnabled: true, qaEvaluationPublicReadEnabled: true });
+    const missing = await missingApp.inject({ method: "GET", url: `/api/accessibility-evaluations/${accessibilityCreated.id}` });
+    expect(missing.statusCode).toBe(200);
+    expect(missing.json().relatedQaEvaluationId).toBeNull();
+    await missingApp.close();
+
+    const corruptRepository: QaEvaluationRepository = { create: qaRepository.create, findById: qaRepository.findById, findByScannerRun: () => { throw new QaEvaluationPersistenceCorruptionError("corrupt"); }, list: qaRepository.list };
+    const corruptApp = buildApp({ logger: false, accessibilityEvaluationRepository: accessibilityRepository, qaEvaluationRepository: corruptRepository, accessibilityEvaluationPublicReadEnabled: true, qaEvaluationPublicReadEnabled: true });
+    const corrupt = await corruptApp.inject({ method: "GET", url: `/api/accessibility-evaluations/${accessibilityCreated.id}` });
+    expect(corrupt.statusCode).toBe(500);
+    expect(corrupt.json().error.code).toBe("INTERNAL_ERROR");
+    await corruptApp.close();
   });
 
   it("validates IDs, missing rows, and hides persisted corruption", async () => {
