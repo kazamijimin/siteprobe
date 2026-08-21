@@ -2,7 +2,7 @@
 
 SiteProbe is a mobile-first website QA platform. The long-term product will submit website targets from an Expo application to a backend that runs isolated browser checks.
 
-## Current status: Product Phase P2
+## Current status: Product Phase P3
 
 - Phase A — Expo/Metro/Hermes foundation
 - Phase B — Shared contracts and fake Fastify API
@@ -13,6 +13,7 @@ SiteProbe is a mobile-first website QA platform. The long-term product will subm
 - Phase G — Private authenticated scanner worker and isolation gate
 - Product Phase P1 — Persistent scan history and improved synthetic results
 - Product Phase P2 — Server-backed scan-history search
+- Product Phase P3 — Controlled QA evaluator
 
 Phase A established the Expo mobile foundation:
 
@@ -26,7 +27,7 @@ Phase A established the Expo mobile foundation:
 
 The app contains a Home scan form, searchable persistent Scan History route, and validated Scan Result route.
 
-Phase B added the platform-neutral Zod contracts and a local-only Fastify fake API. Phase C connects the Expo client to that API: Home creates a scan, the server-created ID drives navigation, and the Result screen retrieves and validates the scan independently. Product Phase P1 adds persisted history with bounded cursor pagination and keeps the result experience explicitly synthetic. Product Phase P2 adds server-backed, case-insensitive literal search across persisted requested and normalized URLs while preserving cursor pagination.
+Phase B added the platform-neutral Zod contracts and a local-only Fastify fake API. Phase C connects the Expo client to that API: Home creates a scan, the server-created ID drives navigation, and the Result screen retrieves and validates the scan independently. Product Phase P1 adds persisted history with bounded cursor pagination and keeps the result experience explicitly synthetic. Product Phase P2 adds server-backed, case-insensitive literal search across persisted requested and normalized URLs while preserving cursor pagination. Product Phase P3 adds a deterministic in-process QA evaluator for `ScannerResult` objects produced by controlled fixture scans. It is not exposed through the public API, mobile application, or private scanner worker response.
 
 Phase D replaces the API's in-memory repository with PostgreSQL persistence through Drizzle ORM and versioned SQL migrations. Phase E adds the scanner safety boundary: URL policy, DNS/IP classification, redirect validation, passive request policy, and resource limits. Phase F adds a controlled Chromium engine that reuses those checks and returns internal observations. Phase G adds a loopback-only authenticated scanner worker, a fail-closed isolation gate, and an API-side client that is deliberately not used by the public route.
 
@@ -43,6 +44,7 @@ services/api/drizzle/ Versioned SQL migrations
 services/scanner/ Private scanner worker, security boundary, and controlled Playwright engine
 services/scanner/src/browser/ Playwright/Chromium orchestration and request interception
 services/scanner/src/scan/ Internal observation result and scan runner
+services/scanner/src/evaluation/ Internal deterministic QA evaluator
 services/scanner/src/isolation/ Capability model and fail-closed execution gate
 services/scanner/src/routes/ Private health, readiness, and scan endpoints
 ```
@@ -151,6 +153,13 @@ The scanner tests use injected DNS answers and controlled Playwright routes. The
 do not browse arbitrary public websites. The browser is launched only by the
 scanner test runner, with a non-persistent context and the Phase E request
 safety policy applied to every request.
+
+Product Phase P3 evaluates those controlled `ScannerResult` observations with six
+deterministic QA rules covering navigation, document title presence, runtime
+errors, and failed requests. It produces internal structured findings only; it
+does not calculate a score, persist findings, or connect the evaluator to the
+public API. Public scan summaries remain synthetic and arbitrary public URL
+scanning remains disabled.
 
 The scanner package does not currently expose a public HTTP endpoint or a
 standalone production scan command. Do not wire it to mobile/API requests until
