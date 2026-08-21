@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   formatEvaluationTimestamp,
+  formatEvaluationSource,
+  formatEvaluationSummary,
   formatEvidenceCount,
   formatQaCategory,
   formatQaSeverity,
@@ -20,6 +22,12 @@ describe('controlled QA evaluation presentation', () => {
     expect(formatQaCategory('document')).toBe('Document');
     expect(formatQaCategory('runtime')).toBe('Runtime');
     expect(formatQaCategory('network')).toBe('Network');
+  });
+
+  it('formats compact list metadata without adding score semantics', () => {
+    const item = { source: 'controlled-scanner' as const, evaluatorVersion: 1 as const };
+    expect(formatEvaluationSource(item)).toBe('Controlled scanner · Evaluator v1');
+    expect(formatEvaluationSummary({ critical: 1, warnings: 2, passed: 3, notApplicable: 0 })).toBe('Critical 1 · Warnings 2 · Passed 3 · N/A 0');
   });
 
   it('formats timestamps and evidence counts without deriving new semantics', () => {

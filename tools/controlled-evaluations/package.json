@@ -1,0 +1,35 @@
+{
+  "name": "@siteprobe/controlled-evaluations",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/workflow.ts",
+      "import": "./src/workflow.ts",
+      "default": "./src/workflow.ts"
+    },
+    "./cli": {
+      "types": "./src/cli.ts",
+      "import": "./src/cli.ts",
+      "default": "./src/cli.ts"
+    }
+  },
+  "scripts": {
+    "fixture": "node --import tsx/esm src/cli.ts",
+    "pretypecheck": "pnpm --filter @siteprobe/contracts build",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "pretest": "pnpm --filter @siteprobe/contracts build",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@siteprobe/contracts": "workspace:*",
+    "@siteprobe/scanner": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "~6.0.3",
+    "vitest": "^3.2.4"
+  }
+}

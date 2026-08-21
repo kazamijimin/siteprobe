@@ -3,6 +3,18 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./controlled-fixtures": {
+      "types": "./src/controlled-fixtures/index.ts",
+      "import": "./src/controlled-fixtures/index.ts",
+      "default": "./src/controlled-fixtures/index.ts"
+    }
+  },
   "scripts": {
     "dev": "node --env-file-if-exists=.env --import tsx/esm --watch src/server.ts",
     "install-browser": "playwright install chromium",

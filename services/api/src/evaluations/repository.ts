@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, lt, or } from "drizzle-orm";
 import {
   controlledQaEvaluationCreateSchema,
   controlledQaEvaluationResponseSchema,
@@ -25,10 +25,26 @@ export class QaEvaluationConflictError extends Error {
   }
 }
 
+export type QaEvaluationListPosition = {
+  createdAt: string;
+  id: string;
+};
+
+export type ListQaEvaluationsOptions = {
+  limit: number;
+  before?: QaEvaluationListPosition;
+};
+
+export type QaEvaluationListPage = {
+  evaluations: ControlledQaEvaluationResponse[];
+  nextPosition: QaEvaluationListPosition | null;
+};
+
 export interface QaEvaluationRepository {
   create(input: ControlledQaEvaluationCreate): Promise<{ evaluation: ControlledQaEvaluationResponse; created: boolean }> | { evaluation: ControlledQaEvaluationResponse; created: boolean };
   findById(id: string): Promise<ControlledQaEvaluationResponse | undefined> | ControlledQaEvaluationResponse | undefined;
   findByScannerRun(scannerRunId: string, evaluatorVersion: number): Promise<ControlledQaEvaluationResponse | undefined> | ControlledQaEvaluationResponse | undefined;
+  list(options: ListQaEvaluationsOptions): Promise<QaEvaluationListPage> | QaEvaluationListPage;
 }
 
 function normalizeInput(input: ControlledQaEvaluationCreate): string {
@@ -67,6 +83,35 @@ function rowFromInput(input: ControlledQaEvaluationCreate, id: string, createdAt
     scannedAt: new Date(input.scannedAt),
     evaluationJson: input.evaluation,
     createdAt,
+  };
+}
+
+function compareRows(left: QaEvaluationRow, right: QaEvaluationRow): number {
+  const createdDifference = right.createdAt.getTime() - left.createdAt.getTime();
+  if (createdDifference !== 0) return createdDifference;
+  if (left.id === right.id) return 0;
+  return left.id > right.id ? -1 : 1;
+}
+
+function isBeforeCursor(row: QaEvaluationRow, cursor: QaEvaluationListPosition): boolean {
+  const rowCreatedAt = row.createdAt.getTime();
+  const cursorCreatedAt = Date.parse(cursor.createdAt);
+  return rowCreatedAt < cursorCreatedAt
+    || (rowCreatedAt === cursorCreatedAt && row.id < cursor.id);
+}
+
+function pageFromResponses(
+  responses: ControlledQaEvaluationResponse[],
+  limit: number,
+): QaEvaluationListPage {
+  const hasMore = responses.length > limit;
+  const evaluations = responses.slice(0, limit);
+  const last = evaluations.at(-1);
+  return {
+    evaluations,
+    nextPosition: hasMore && last
+      ? { createdAt: last.createdAt, id: last.id }
+      : null,
   };
 }
 
@@ -111,6 +156,14 @@ export class InMemoryQaEvaluationRepository implements QaEvaluationRepository {
     const id = this.byComposite.get(`${scannerRunId}:${evaluatorVersion}`);
     return id ? this.findById(id) : undefined;
   }
+
+  list(options: ListQaEvaluationsOptions): QaEvaluationListPage {
+    const rows = [...this.rows.values()]
+      .filter((row) => !options.before || isBeforeCursor(row, options.before))
+      .sort(compareRows)
+      .slice(0, options.limit + 1);
+    return pageFromResponses(rows.map(toResponse), options.limit);
+  }
 }
 
 export class PostgresQaEvaluationRepository implements QaEvaluationRepository {
@@ -153,5 +206,25 @@ export class PostgresQaEvaluationRepository implements QaEvaluationRepository {
       eq(qaEvaluations.evaluatorVersion, evaluatorVersion),
     )).limit(1);
     return rows[0] ? toResponse(rows[0]) : undefined;
+  }
+
+  async list(options: ListQaEvaluationsOptions): Promise<QaEvaluationListPage> {
+    const cursorDate = options.before ? new Date(options.before.createdAt) : undefined;
+    const cursorFilter = options.before && cursorDate
+      ? or(
+        lt(qaEvaluations.createdAt, cursorDate),
+        and(eq(qaEvaluations.createdAt, cursorDate), lt(qaEvaluations.id, options.before.id)),
+      )
+      : undefined;
+    const query = this.db.select().from(qaEvaluations);
+    const rows = cursorFilter
+      ? await query
+        .where(cursorFilter)
+        .orderBy(desc(qaEvaluations.createdAt), desc(qaEvaluations.id))
+        .limit(options.limit + 1)
+      : await query
+        .orderBy(desc(qaEvaluations.createdAt), desc(qaEvaluations.id))
+        .limit(options.limit + 1);
+    return pageFromResponses(rows.map(toResponse), options.limit);
   }
 }

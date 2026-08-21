@@ -78,3 +78,31 @@ Product Phase P4 keeps the evaluator pure while importing its QA types from
 `@siteprobe/contracts`. The API owns the separate `qa_evaluations` persistence
 boundary; the scanner has no PostgreSQL dependency or database credentials and
 does not call the internal persistence routes.
+
+## Product Phase P7 controlled fixtures
+
+The scanner exposes a narrow developer-only controlled-fixture façade used by
+the separate `tools/controlled-evaluations` package. Its catalog contains only:
+
+```text
+healthy
+missing-title
+status-404
+redirect-ok
+navigation-timeout
+console-error
+failed-resource
+```
+
+`runControlledFixture()` accepts a catalog ID, never a URL or path, and reuses
+the existing `fixture.invalid` resolver and Playwright route fulfillment. URL
+safety, DNS/IP classification, redirect checks, method restrictions,
+subresource policy, and resource limits still run before fulfillment. There is
+no localhost exception, fixture server port, external DNS request, or arbitrary
+destination fallback.
+
+The scanner package does not read `QA_EVALUATION_INTERNAL_TOKEN`,
+`DATABASE_URL`, or `SITEPROBE_TEST_DATABASE_URL`. The separate tool evaluates
+the returned `ScannerResult` and uses the authenticated API ingestion route.
+P7 does not use the private scanner worker, alter public synthetic scans, or
+make Phase H production isolation-ready.

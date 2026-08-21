@@ -176,6 +176,38 @@ export const controlledQaEvaluationPublicResponseSchema = z.object({
   createdAt: z.string().datetime({ offset: true }),
 }).strict().superRefine(metadataConsistency);
 
+export const controlledQaEvaluationListItemSchema = z.object({
+  id: z.string().uuid(),
+  source: z.literal("controlled-scanner"),
+  evaluatorVersion: qaEvaluatorVersionSchema,
+  requestedUrl: z.string().min(1).max(2048),
+  scannedAt: z.string().datetime({ offset: true }),
+  createdAt: z.string().datetime({ offset: true }),
+  summary: qaEvaluationSummarySchema,
+}).strict();
+
+export const qaEvaluationListCursorPayloadSchema = z.object({
+  v: z.literal(1),
+  createdAt: z.string().datetime({ offset: true }),
+  id: z.string().uuid(),
+}).strict();
+
+export const qaEvaluationListCursorSchema = z
+  .string()
+  .min(1)
+  .max(512)
+  .regex(/^[A-Za-z0-9_-]+$/, "Cursor must be a base64url value");
+
+export const listControlledQaEvaluationsQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  cursor: qaEvaluationListCursorSchema.optional(),
+}).strict();
+
+export const listControlledQaEvaluationsResponseSchema = z.object({
+  evaluations: z.array(controlledQaEvaluationListItemSchema).max(50),
+  nextCursor: qaEvaluationListCursorSchema.nullable(),
+}).strict();
+
 export const qaEvaluationIdParamsSchema = z.object({ id: z.string().uuid() }).strict();
 
 export const controlledQaEvaluationErrorEnvelopeSchema = z.object({
@@ -201,5 +233,9 @@ export type QaEvaluatorVersion = z.infer<typeof qaEvaluatorVersionSchema>;
 export type ControlledQaEvaluationCreate = z.infer<typeof controlledQaEvaluationCreateSchema>;
 export type ControlledQaEvaluationResponse = z.infer<typeof controlledQaEvaluationResponseSchema>;
 export type ControlledQaEvaluationPublicResponse = z.infer<typeof controlledQaEvaluationPublicResponseSchema>;
+export type ControlledQaEvaluationListItem = z.infer<typeof controlledQaEvaluationListItemSchema>;
+export type QaEvaluationListCursorPayload = z.infer<typeof qaEvaluationListCursorPayloadSchema>;
+export type ListControlledQaEvaluationsQuery = z.infer<typeof listControlledQaEvaluationsQuerySchema>;
+export type ListControlledQaEvaluationsResponse = z.infer<typeof listControlledQaEvaluationsResponseSchema>;
 export type QaEvaluationIdParams = z.infer<typeof qaEvaluationIdParamsSchema>;
 export type ControlledQaEvaluationErrorEnvelope = z.infer<typeof controlledQaEvaluationErrorEnvelopeSchema>;

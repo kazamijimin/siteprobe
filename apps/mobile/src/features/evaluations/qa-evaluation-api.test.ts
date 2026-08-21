@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getApiBaseUrl } from '@/config/environment';
 import { ContractError } from '@/services/api/client';
-import { getQaEvaluation } from '@/features/evaluations/qa-evaluation-api';
+import { getQaEvaluation, listQaEvaluations } from '@/features/evaluations/qa-evaluation-api';
 
 const evaluationFixture = {
   id: '00000000-0000-4000-8000-000000000000',
@@ -25,6 +25,19 @@ const evaluationFixture = {
   createdAt: '2026-08-20T00:01:00.000Z',
 };
 
+const listFixture = {
+  evaluations: [{
+    id: evaluationFixture.id,
+    source: 'controlled-scanner' as const,
+    evaluatorVersion: 1 as const,
+    requestedUrl: evaluationFixture.requestedUrl,
+    scannedAt: evaluationFixture.scannedAt,
+    createdAt: evaluationFixture.createdAt,
+    summary: evaluationFixture.evaluation.summary,
+  }],
+  nextCursor: null,
+};
+
 afterEach(() => {
   vi.unstubAllGlobals();
   delete process.env.EXPO_PUBLIC_API_URL;
@@ -45,6 +58,36 @@ describe('controlled QA evaluation API', () => {
       `${getApiBaseUrl()}/api/qa-evaluations/${encodeURIComponent(evaluationFixture.id)}`,
       expect.objectContaining({ method: 'GET' }),
     );
+  });
+
+  it('lists evaluations with bounded query parameters and validates the response', async () => {
+    process.env.EXPO_PUBLIC_API_URL = 'http://127.0.0.1:3000';
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => listFixture,
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(listQaEvaluations()).resolves.toEqual(listFixture);
+    await expect(listQaEvaluations({ limit: 50, cursor: 'eyJ2IjoxfQ' })).resolves.toEqual(listFixture);
+    expect(fetchMock.mock.calls[0][0]).toBe('http://127.0.0.1:3000/api/qa-evaluations?limit=20');
+    expect(fetchMock.mock.calls[1][0]).toBe('http://127.0.0.1:3000/api/qa-evaluations?limit=50&cursor=eyJ2IjoxfQ');
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'GET' });
+  });
+
+  it('rejects malformed list responses and maps list errors', async () => {
+    process.env.EXPO_PUBLIC_API_URL = 'http://127.0.0.1:3000';
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ...listFixture, evaluations: [{ ...listFixture.evaluations[0], scannerRunId: evaluationFixture.id }] }) })
+      .mockResolvedValueOnce({ ok: false, status: 404, json: async () => ({ error: { code: 'NOT_FOUND', message: 'QA evaluations not found', requestId: 'req-4' } }) })
+      .mockResolvedValueOnce({ ok: false, status: 400, json: async () => ({ error: { code: 'VALIDATION_ERROR', message: 'Request validation failed', requestId: 'req-5' } }) })
+      .mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({ error: { code: 'INTERNAL_ERROR', message: 'Internal server error', requestId: 'req-6' } }) }));
+
+    await expect(listQaEvaluations()).rejects.toBeInstanceOf(ContractError);
+    await expect(listQaEvaluations()).rejects.toMatchObject({ status: 404, code: 'NOT_FOUND' });
+    await expect(listQaEvaluations()).rejects.toMatchObject({ status: 400, code: 'VALIDATION_ERROR' });
+    await expect(listQaEvaluations()).rejects.toMatchObject({ status: 500, code: 'INTERNAL_ERROR' });
   });
 
   it('rejects malformed success responses and maps API errors', async () => {

@@ -2,7 +2,11 @@
 
 SiteProbe is a mobile-first website QA platform. The long-term product will submit website targets from an Expo application to a backend that runs isolated browser checks.
 
-## Current status: Product Phase P5
+## Current status: Product Phase P7
+
+- Product Phase P7 — Controlled fixture generation and authenticated ingestion
+
+- Product Phase P6 — Controlled QA evaluation index
 
 - Product Phase P5 â€” Controlled QA evaluation detail experience
 
@@ -34,6 +38,10 @@ Phase B added the platform-neutral Zod contracts and a local-only Fastify fake A
 
 Product Phase P5 adds a development-gated, read-only /api/qa-evaluations/:id adapter and the Expo /qa-evaluations/[id] detail screen. P5 displays already-stored controlled evaluation snapshots; viewing a result does not initiate scanning. The adapter is disabled by default, exposes a reduced projection without scannerRunId or scores, and the internal evaluation token remains server-side only.
 
+Product Phase P6 adds a development-gated, read-only `/api/qa-evaluations` index with opaque cursor pagination and the Expo `/qa-evaluations` discovery screen. It lists only already-persisted controlled evaluation summaries, remains separate from synthetic scan history, and never starts a scan, evaluator, browser, DNS lookup, or target request. The existing `QA_EVALUATION_PUBLIC_READ_ENABLED` flag remains default-off; fixture generation and ingestion remain deferred to P7.
+
+Product Phase P7 adds a developer-only `pnpm controlled:fixture <id>` workflow for seven repository-owned fixture IDs. The workflow runs the existing controlled Playwright scanner in-process, evaluates the resulting `ScannerResult` once, and persists it through the authenticated `POST /internal/qa-evaluations` route. It accepts no arbitrary URL, host, path, or target, gives the scanner no database credentials, does not change public synthetic scans, and does not require the P5/P6 public-read flag for ingestion. Phase H remains deferred pending verified isolation.
+
 Phase D replaces the API's in-memory repository with PostgreSQL persistence through Drizzle ORM and versioned SQL migrations. Phase E adds the scanner safety boundary: URL policy, DNS/IP classification, redirect validation, passive request policy, and resource limits. Phase F adds a controlled Chromium engine that reuses those checks and returns internal observations. Phase G adds a loopback-only authenticated scanner worker, a fail-closed isolation gate, and an API-side client that is deliberately not used by the public route.
 
 Scan results remain deterministic synthetic placeholders in the public API. The Phase F/G engine is available only behind the private worker boundary; the public API and mobile app do not launch Playwright.
@@ -50,6 +58,7 @@ services/scanner/ Private scanner worker, security boundary, and controlled Play
 services/scanner/src/browser/ Playwright/Chromium orchestration and request interception
 services/scanner/src/scan/ Internal observation result and scan runner
 services/scanner/src/evaluation/ Internal deterministic QA evaluator
+tools/controlled-evaluations/ Developer-only controlled fixture workflow
 services/scanner/src/isolation/ Capability model and fail-closed execution gate
 services/scanner/src/routes/ Private health, readiness, and scan endpoints
 ```
@@ -133,8 +142,49 @@ pnpm db:test
 pnpm scanner:typecheck
 pnpm scanner:test
 pnpm scanner:install-browser
+pnpm controlled:fixture:test
 pnpm check
 ```
+
+## Run a controlled fixture evaluation
+
+P7 supports only the closed catalog of repository-owned fixture IDs:
+
+```text
+healthy
+missing-title
+status-404
+redirect-ok
+navigation-timeout
+console-error
+failed-resource
+```
+
+The workflow does not accept arbitrary URLs or destinations. It uses the
+scanner's in-process `fixture.invalid` route fulfillment and the existing URL,
+DNS, redirect, request, and resource policies before a page is fulfilled.
+
+Start the API first, install Chromium, and configure the tool-local
+`tools/controlled-evaluations/.env` from its example:
+
+```env
+SITEPROBE_API_URL=http://127.0.0.1:3000
+QA_EVALUATION_INTERNAL_TOKEN=<server-side-token>
+```
+
+Then run:
+
+```powershell
+pnpm controlled:fixture --list
+pnpm controlled:fixture healthy
+```
+
+The command prints the scanner run ID, persisted evaluation ID, summary counts,
+and the relative P5 detail path. It uses the existing authenticated internal
+ingestion API; it does not write PostgreSQL directly, does not require
+`QA_EVALUATION_PUBLIC_READ_ENABLED=true`, and does not use the private scanner
+worker token. To browse the result in Expo, enable the P5/P6 read flag on the
+API separately and open the printed path.
 
 ## View a controlled QA evaluation
 
