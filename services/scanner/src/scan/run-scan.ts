@@ -55,6 +55,19 @@ type MutableResources = {
   page?: Page;
 };
 
+export type ScannerPageInspector<T> = (input: {
+  page: Page;
+  context: BrowserContext;
+  state: NetworkPolicyState;
+  policy: ScannerRunLimits;
+  scannerResult: ScannerResult;
+}) => Promise<T>;
+
+type ScanExecutionResult<T> = {
+  scannerResult: ScannerResult;
+  inspection?: T;
+};
+
 function runtimeLimits(overrides?: Partial<ScannerRunLimits>): ScannerRunLimits {
   return { ...scannerResourcePolicy.defined, ...overrides };
 }
@@ -148,7 +161,7 @@ function collectPageEvents(
   });
 }
 
-async function executeScan(
+async function executeScan<T>(
   input: ScannerRunInput,
   resources: MutableResources,
   state: NetworkPolicyState,
@@ -156,7 +169,8 @@ async function executeScan(
   options: ScannerRunOptions,
   now: () => Date,
   isCancelled: () => boolean,
-): Promise<ScannerResult> {
+  pageInspector?: ScannerPageInspector<T>,
+): Promise<ScanExecutionResult<T>> {
   const resolver = options.resolver ?? nodeDnsResolver;
   let safeDestination;
   try {
@@ -166,7 +180,7 @@ async function executeScan(
       error instanceof ScannerSecurityError && error.code === "DNS_RESOLUTION_FAILED"
         ? "DNS_FAILURE"
         : "UNSAFE_TARGET";
-    return failureResult(input, failureCode, now);
+    return { scannerResult: failureResult(input, failureCode, now) };
   }
   if (isCancelled()) throw new ScannerExecutionError("JOB_TIMEOUT", "Scanner job timed out");
 
@@ -226,7 +240,7 @@ async function executeScan(
   }
 
   if (state.requestLimitExceeded) failureCode = "REQUEST_LIMIT_EXCEEDED";
-  return scannerResultSchema.parse({
+  const scannerResult = scannerResultSchema.parse({
     scanId: input.scanId,
     requestedUrl: sanitizeUrl(safeDestination.normalizedUrl),
     finalUrl: finalUrl === "[invalid-url]" ? safeDestination.normalizedUrl : finalUrl,
@@ -240,12 +254,28 @@ async function executeScan(
     scannedAt: now().toISOString(),
     ...(failureCode ? { failureCode } : {}),
   });
+  let inspection: T | undefined;
+  if (pageInspector && scannerResult.navigationSucceeded && !isCancelled()) {
+    try {
+      inspection = await pageInspector({
+        page: resources.page,
+        context: resources.context,
+        state,
+        policy,
+        scannerResult,
+      });
+    } catch {
+      // A controlled inspector must not change the core scanner result.
+    }
+  }
+  return { scannerResult, inspection };
 }
 
-export async function runScan(
+async function runScanInternal<T>(
   rawInput: ScannerRunInput,
   options: ScannerRunOptions = {},
-): Promise<ScannerResult> {
+  pageInspector?: ScannerPageInspector<T>,
+): Promise<ScanExecutionResult<T>> {
   const input = scannerValidationRequestSchema.parse(rawInput);
   const policy = runtimeLimits(options.limits);
   const now = options.now ?? (() => new Date());
@@ -254,7 +284,7 @@ export async function runScan(
   let cancelled = false;
   let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
 
-  const execution = executeScan(input, resources, state, policy, options, now, () => cancelled);
+  const execution = executeScan(input, resources, state, policy, options, now, () => cancelled, pageInspector);
   execution.catch(() => undefined);
   const timeout = new Promise<never>((_, reject) => {
     timeoutHandle = setTimeout(() => {
@@ -267,7 +297,7 @@ export async function runScan(
     return await Promise.race([execution, timeout]);
   } catch (error) {
     const code = error instanceof ScannerExecutionError ? error.code : "BROWSER_CRASHED";
-    return failureResult(input, code, now, sanitizeUrl(input.url), state);
+    return { scannerResult: failureResult(input, code, now, sanitizeUrl(input.url), state) };
   } finally {
     cancelled = true;
     if (timeoutHandle) clearTimeout(timeoutHandle);
@@ -275,4 +305,21 @@ export async function runScan(
     await closeQuietly(resources.context);
     await closeQuietly(resources.browser);
   }
+}
+
+export async function runScan(
+  rawInput: ScannerRunInput,
+  options: ScannerRunOptions = {},
+): Promise<ScannerResult> {
+  const result = await runScanInternal(rawInput, options);
+  return result.scannerResult;
+}
+
+/** Internal controlled-only seam. It is intentionally not exported from the scanner package root. */
+export async function runScanWithPageInspector<T>(
+  rawInput: ScannerRunInput,
+  pageInspector: ScannerPageInspector<T>,
+  options: ScannerRunOptions = {},
+): Promise<{ scannerResult: ScannerResult; inspection?: T }> {
+  return runScanInternal(rawInput, options, pageInspector);
 }

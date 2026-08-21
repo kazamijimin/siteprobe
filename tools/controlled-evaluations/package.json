@@ -13,10 +13,16 @@
       "types": "./src/cli.ts",
       "import": "./src/cli.ts",
       "default": "./src/cli.ts"
+    },
+    "./accessibility-cli": {
+      "types": "./src/accessibility-cli.ts",
+      "import": "./src/accessibility-cli.ts",
+      "default": "./src/accessibility-cli.ts"
     }
   },
   "scripts": {
     "fixture": "node --import tsx/esm src/cli.ts",
+    "accessibility": "node --import tsx/esm src/accessibility-cli.ts",
     "pretypecheck": "pnpm --filter @siteprobe/contracts build",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "pretest": "pnpm --filter @siteprobe/contracts build",

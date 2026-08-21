@@ -2,7 +2,9 @@
 
 SiteProbe is a mobile-first website QA platform. The long-term product will submit website targets from an Expo application to a backend that runs isolated browser checks.
 
-## Current status: Product Phase P7
+## Current status: Product Phase P8
+
+- Product Phase P8 — Controlled accessibility evaluation with axe-core
 
 - Product Phase P7 — Controlled fixture generation and authenticated ingestion
 
@@ -41,6 +43,13 @@ Product Phase P5 adds a development-gated, read-only /api/qa-evaluations/:id ada
 Product Phase P6 adds a development-gated, read-only `/api/qa-evaluations` index with opaque cursor pagination and the Expo `/qa-evaluations` discovery screen. It lists only already-persisted controlled evaluation summaries, remains separate from synthetic scan history, and never starts a scan, evaluator, browser, DNS lookup, or target request. The existing `QA_EVALUATION_PUBLIC_READ_ENABLED` flag remains default-off; fixture generation and ingestion remain deferred to P7.
 
 Product Phase P7 adds a developer-only `pnpm controlled:fixture <id>` workflow for seven repository-owned fixture IDs. The workflow runs the existing controlled Playwright scanner in-process, evaluates the resulting `ScannerResult` once, and persists it through the authenticated `POST /internal/qa-evaluations` route. It accepts no arbitrary URL, host, path, or target, gives the scanner no database credentials, does not change public synthetic scans, and does not require the P5/P6 public-read flag for ingestion. Phase H remains deferred pending verified isolation.
+
+Product Phase P8 adds a separate controlled accessibility workflow using the exact
+`@axe-core/playwright@4.13.0` adapter and five fixed WCAG tags. It accepts only
+the four `accessibility-*` fixture IDs, runs axe on the already-loaded fixture
+page with no additional requests or pages, bounds and deterministically normalizes
+results, persists a separate version-1 accessibility snapshot through the
+authenticated internal API, and leaves public scans and mobile unchanged.
 
 Phase D replaces the API's in-memory repository with PostgreSQL persistence through Drizzle ORM and versioned SQL migrations. Phase E adds the scanner safety boundary: URL policy, DNS/IP classification, redirect validation, passive request policy, and resource limits. Phase F adds a controlled Chromium engine that reuses those checks and returns internal observations. Phase G adds a loopback-only authenticated scanner worker, a fail-closed isolation gate, and an API-side client that is deliberately not used by the public route.
 
@@ -143,6 +152,8 @@ pnpm scanner:typecheck
 pnpm scanner:test
 pnpm scanner:install-browser
 pnpm controlled:fixture:test
+pnpm controlled:typecheck
+pnpm controlled:test
 pnpm check
 ```
 
@@ -185,6 +196,31 @@ ingestion API; it does not write PostgreSQL directly, does not require
 `QA_EVALUATION_PUBLIC_READ_ENABLED=true`, and does not use the private scanner
 worker token. To browse the result in Expo, enable the P5/P6 read flag on the
 API separately and open the printed path.
+
+## Run a controlled accessibility evaluation
+
+P8 supports only these fixture IDs:
+
+```text
+accessibility-clean
+accessibility-missing-alt
+accessibility-mixed
+accessibility-navigation-timeout
+```
+
+With the API running and the same tool `.env` configuration, run:
+
+```powershell
+pnpm controlled:accessibility --list
+pnpm controlled:accessibility accessibility-mixed
+```
+
+The command first persists the normal controlled QA evaluation, then persists a
+separate accessibility evaluation. Accessibility results include bounded
+violations and needs-review rules, impact/node summaries, truncation flags, and
+axe metadata. Navigation failure is represented as `notApplicable`; an axe
+failure never creates an accessibility row after the core QA row. The workflow
+never accepts a URL or writes PostgreSQL directly.
 
 ## View a controlled QA evaluation
 

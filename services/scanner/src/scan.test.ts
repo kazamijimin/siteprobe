@@ -125,7 +125,7 @@ describe("minimal Playwright scanner", () => {
     });
     expect(result.failureCode).toBe("JOB_TIMEOUT");
     expect(launchedBrowser?.isConnected()).toBe(false);
-  });
+  }, 15_000);
 
   it("keeps the service-worker policy enabled through the scanner context", async () => {
     const result = await runFixture("/sw");

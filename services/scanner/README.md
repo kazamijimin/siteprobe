@@ -106,3 +106,21 @@ The scanner package does not read `QA_EVALUATION_INTERNAL_TOKEN`,
 the returned `ScannerResult` and uses the authenticated API ingestion route.
 P7 does not use the private scanner worker, alter public synthetic scans, or
 make Phase H production isolation-ready.
+
+## Product Phase P8 accessibility evaluation
+
+The `@siteprobe/scanner/controlled-accessibility` subpath exposes the separate
+controlled accessibility seam. Its catalog contains only
+`accessibility-clean`, `accessibility-missing-alt`, `accessibility-mixed`, and
+`accessibility-navigation-timeout`; arbitrary URLs and target parameters are not
+accepted. The runner performs one controlled Playwright navigation and invokes
+`@axe-core/playwright@4.13.0` in legacy same-page mode with the fixed tags
+`wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa`, and `wcag22aa`. Axe cannot open a new
+page or make a target request; the network-policy request counter is checked
+before and after analysis.
+
+Results are normalized into a bounded Accessibility Evaluation v1 contract.
+Violations and needs-review entries are deterministically ordered, selector and
+failure text are clipped, samples are capped, and the serialized payload is
+limited to 48 KiB. The accessibility engine has no database or API credentials.
+The separate developer tool performs authenticated persistence through the API.

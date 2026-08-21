@@ -4,9 +4,11 @@ import { ZodError } from "zod";
 import { healthRoutes } from "./routes/health.js";
 import { scanRoutes } from "./routes/scans.js";
 import { qaEvaluationRoutes } from "./routes/qa-evaluations.js";
+import { accessibilityEvaluationRoutes } from "./routes/accessibility-evaluations.js";
 import { InMemoryScanRepository, type ScanRepository } from "./repository.js";
 import type { ScannerClient } from "./scanner/client.js";
 import { InMemoryQaEvaluationRepository, type QaEvaluationRepository } from "./evaluations/repository.js";
+import { InMemoryAccessibilityEvaluationRepository, type AccessibilityEvaluationRepository } from "./accessibility-evaluations/repository.js";
 
 const BODY_LIMIT_BYTES = 16 * 1024;
 
@@ -34,6 +36,7 @@ export type BuildAppOptions = {
   qaEvaluationRepository?: QaEvaluationRepository;
   qaEvaluationInternalToken?: string;
   qaEvaluationPublicReadEnabled?: boolean;
+  accessibilityEvaluationRepository?: AccessibilityEvaluationRepository;
 };
 
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
@@ -98,6 +101,10 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     repository: options.qaEvaluationRepository ?? new InMemoryQaEvaluationRepository(),
     token: options.qaEvaluationInternalToken,
     publicReadEnabled: options.qaEvaluationPublicReadEnabled ?? false,
+  }));
+  app.register(accessibilityEvaluationRoutes({
+    repository: options.accessibilityEvaluationRepository ?? new InMemoryAccessibilityEvaluationRepository(),
+    token: options.qaEvaluationInternalToken,
   }));
   return app;
 }

@@ -31,6 +31,9 @@ const pages: Record<string, string> = {
   "/redirect-target": '<!doctype html><title>Redirect Target Fixture</title><h1>Redirected</h1>',
   "/download": '<!doctype html><title>Download Fixture</title><a download href="/file.bin" id="download">download</a><script>document.getElementById("download").click()</script>',
   "/sw": '<!doctype html><title>Service Worker Fixture</title><script>navigator.serviceWorker.register("/sw.js").catch(() => {})</script>',
+  "/accessibility-clean": '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Accessible Fixture</title></head><body><main><h1>Accessible fixture</h1><form><label for="name">Name</label><input id="name" name="name"></form><button type="button">Continue</button><img alt="Decorative mark" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="></main></body></html>',
+  "/accessibility-missing-alt": '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Missing Alternative Text Fixture</title></head><body><main><h1>Missing alternative text</h1><img src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="></main></body></html>',
+  "/accessibility-mixed": '<!doctype html><html><head><meta charset="utf-8"><title>Mixed Accessibility Fixture</title></head><body><main><h1>Mixed accessibility findings</h1><form><input id="unlabeled"></form><img src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="><img src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="><img src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="><img src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="><img src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="></main></body></html>',
 };
 
 async function fulfillPage(route: Route, pathname: string): Promise<void> {

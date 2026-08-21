@@ -99,3 +99,6 @@ export async function runControlledEvaluationWorkflow(
     throw new ControlledEvaluationError("INGESTION_INVALID_RESPONSE", "API returned an invalid controlled evaluation", { scannerRunId: scannerResult.scanId });
   }
 }
+
+export { runControlledAccessibilityWorkflow } from "./accessibility-workflow.js";
+export type { ControlledAccessibilityWorkflowResult } from "./accessibility-workflow.js";

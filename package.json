@@ -30,6 +30,9 @@
     "scanner:start": "pnpm --filter @siteprobe/scanner start",
     "controlled:fixture": "pnpm --filter @siteprobe/controlled-evaluations fixture",
     "controlled:fixture:test": "pnpm --filter @siteprobe/controlled-evaluations test",
-    "check": "pnpm contracts:build && pnpm contracts:typecheck && pnpm contracts:test && pnpm api:typecheck && pnpm api:test && pnpm db:check && pnpm scanner:typecheck && pnpm scanner:test && pnpm mobile:typecheck && pnpm mobile:lint && pnpm mobile:test"
+    "controlled:accessibility": "pnpm --filter @siteprobe/controlled-evaluations accessibility",
+    "controlled:typecheck": "pnpm --filter @siteprobe/controlled-evaluations typecheck",
+    "controlled:test": "pnpm --filter @siteprobe/controlled-evaluations test",
+    "check": "pnpm contracts:build && pnpm contracts:typecheck && pnpm contracts:test && pnpm controlled:typecheck && pnpm controlled:test && pnpm api:typecheck && pnpm api:test && pnpm db:check && pnpm scanner:typecheck && pnpm scanner:test && pnpm mobile:typecheck && pnpm mobile:lint && pnpm mobile:test"
   }
 }
