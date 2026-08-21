@@ -60,7 +60,7 @@ export default function ScanResultScreen() {
 
   if (visibleState.status === 'loading') {
     return (
-      <View style={styles.container}>
+      <View accessibilityRole={"main" as never} style={styles.container}>
         <Stack.Screen options={{ title: 'Scan Result' }} />
         <View accessibilityLiveRegion="polite" style={styles.content}>
           <ActivityIndicator color="#2563EB" size="large" />
@@ -73,7 +73,7 @@ export default function ScanResultScreen() {
   if (visibleState.status === 'error') {
     const isNotFound = visibleState.message === 'Scan not found.';
     return (
-      <View style={styles.container}>
+      <View accessibilityRole={"main" as never} style={styles.container}>
         <Stack.Screen options={{ title: 'Scan Result' }} />
         <View style={styles.content}>
           <Text accessibilityRole="header" style={styles.title}>
@@ -108,7 +108,7 @@ export default function ScanResultScreen() {
   const statusLabel = formatScanStatus(scan.status);
 
   return (
-    <View style={styles.container}>
+    <View accessibilityRole={"main" as never} style={styles.container}>
       <Stack.Screen options={{ title: 'Scan Result' }} />
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.resultContent}>
@@ -119,6 +119,7 @@ export default function ScanResultScreen() {
         <Text selectable style={styles.value}>{scan.url}</Text>
         <Text style={styles.label}>Status</Text>
         <Text style={styles.value}>{statusLabel}</Text>
+        <View style={styles.provenanceBadge}><Text style={styles.provenanceBadgeText}>Synthetic / Demo Result</Text></View>
         <Text style={styles.label}>QA Score</Text>
         <Text style={styles.score}>{scan.score === null ? 'Not available' : `${scan.score} / 100`}</Text>
         <Text style={styles.label}>Summary</Text>
@@ -136,7 +137,7 @@ export default function ScanResultScreen() {
           {scan.id}
         </Text>
         <Text style={styles.notice}>
-          Synthetic QA result — real website scanning is not implemented yet.
+          This is a deterministic demo result. Real website scanning is not enabled in the public workflow.
         </Text>
 
         <Pressable
@@ -232,6 +233,8 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     marginTop: 24,
   },
+  provenanceBadge: { alignSelf: 'flex-start', backgroundColor: '#FEF3C7', borderColor: '#F6E05E', borderRadius: 999, borderWidth: 1, marginTop: 18, paddingHorizontal: 12, paddingVertical: 6 },
+  provenanceBadgeText: { color: '#744210', fontSize: 14, fontWeight: '700' },
   button: {
     alignItems: 'center',
     backgroundColor: '#2563EB',

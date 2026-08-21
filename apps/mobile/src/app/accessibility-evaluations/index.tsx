@@ -5,6 +5,7 @@ import type { AccessibilityEvaluationListItem } from '@siteprobe/contracts';
 import { ApiError } from '@/services/api/client';
 import { listAccessibilityEvaluations } from '@/features/accessibility-evaluations/accessibility-evaluation-api';
 import {
+  formatAccessibilityProvenance,
   formatAccessibilityListSource,
   formatAccessibilityListSummary,
   formatAccessibilityTimestamp,
@@ -22,6 +23,7 @@ type IndexState = {
   loadMoreError: string | null;
   message: string | null;
 };
+type SourceFilter = 'all' | 'real-site-smoke-test' | 'controlled-fixture';
 
 const initialState: IndexState = {
   status: 'loading',
@@ -57,6 +59,7 @@ function EvaluationCard({ evaluation, onPress }: { evaluation: AccessibilityEval
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
       <Text selectable style={styles.requestedUrl}>{evaluation.requestedUrl}</Text>
+      <Text style={styles.provenanceBadge}>{formatAccessibilityProvenance(evaluation.provenance)}</Text>
       <Text style={styles.source}>{formatAccessibilityListSource(evaluation)}</Text>
       <Text style={styles.timestamp}>Scanned: {formatAccessibilityTimestamp(evaluation.scannedAt)}</Text>
       <Text style={styles.timestamp}>Persisted: {formatAccessibilityTimestamp(evaluation.createdAt)}</Text>
@@ -70,6 +73,7 @@ export default function AccessibilityEvaluationIndexScreen() {
   const router = useRouter();
   const [state, setState] = useState<IndexState>(initialState);
   const [retryCount, setRetryCount] = useState(0);
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
   const controllers = useRef(new Set<AbortController>());
 
   useEffect(() => {
@@ -128,11 +132,13 @@ export default function AccessibilityEvaluationIndexScreen() {
     if (state.status === 'loading') return <View accessibilityLiveRegion="polite" style={styles.centerContent}><ActivityIndicator color="#2563EB" size="large" /><Text accessibilityRole="header" style={styles.stateTitle}>Loading controlled accessibility evaluations...</Text></View>;
     if (state.status === 'unavailable') return <View style={styles.centerContent}><Text accessibilityRole="header" style={styles.stateTitle}>Controlled accessibility evaluations are unavailable.</Text><Text accessibilityLiveRegion="polite" style={styles.message}>{state.message}</Text><Pressable accessibilityLabel="Retry loading controlled accessibility evaluations" accessibilityRole="button" onPress={retry} style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}><Text style={styles.buttonText}>Retry</Text></Pressable></View>;
     if (state.status === 'error') return <View style={styles.centerContent}><Text accessibilityRole="header" style={styles.stateTitle}>Unable to load controlled accessibility evaluations.</Text><Text accessibilityLiveRegion="polite" style={styles.message}>{state.message}</Text><Pressable accessibilityLabel="Retry loading controlled accessibility evaluations" accessibilityRole="button" onPress={retry} style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}><Text style={styles.buttonText}>Retry</Text></Pressable></View>;
+    const visibleEvaluations = state.evaluations.filter((evaluation) => sourceFilter === 'all' || evaluation.provenance === sourceFilter);
     if (state.evaluations.length === 0) return <View style={styles.emptyState}><Text accessibilityRole="header" style={styles.stateTitle}>No controlled accessibility evaluations yet.</Text><Text style={styles.message}>Run an approved controlled accessibility fixture through the authenticated developer workflow first.</Text></View>;
-    return <View>{state.evaluations.map((evaluation) => <EvaluationCard evaluation={evaluation} key={evaluation.id} onPress={() => router.push({ pathname: '/accessibility-evaluations/[id]', params: { id: evaluation.id } })} />)}{state.nextCursor ? <View style={styles.loadMoreContainer}>{state.loadMoreError ? <Text accessibilityLiveRegion="polite" style={styles.error}>{state.loadMoreError}</Text> : null}<Pressable accessibilityLabel={state.loadingMore ? 'Loading more controlled accessibility evaluations' : 'Load more controlled accessibility evaluations'} accessibilityRole="button" accessibilityState={{ busy: state.loadingMore, disabled: state.loadingMore }} disabled={state.loadingMore} onPress={() => void loadMore()} style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}>{state.loadingMore ? <ActivityIndicator color="#2563EB" /> : null}<Text style={styles.secondaryButtonText}>{state.loadingMore ? 'Loading...' : 'Load More'}</Text></Pressable></View> : null}</View>;
+    if (visibleEvaluations.length === 0) return <View style={styles.emptyState}><Text accessibilityRole="header" style={styles.stateTitle}>No evaluations match this source.</Text></View>;
+    return <View>{visibleEvaluations.map((evaluation) => <EvaluationCard evaluation={evaluation} key={evaluation.id} onPress={() => router.push({ pathname: '/accessibility-evaluations/[id]', params: { id: evaluation.id } })} />)}{state.nextCursor ? <View style={styles.loadMoreContainer}>{state.loadMoreError ? <Text accessibilityLiveRegion="polite" style={styles.error}>{state.loadMoreError}</Text> : null}<Pressable accessibilityLabel={state.loadingMore ? 'Loading more controlled accessibility evaluations' : 'Load more controlled accessibility evaluations'} accessibilityRole="button" accessibilityState={{ busy: state.loadingMore, disabled: state.loadingMore }} disabled={state.loadingMore} onPress={() => void loadMore()} style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}>{state.loadingMore ? <ActivityIndicator color="#2563EB" /> : null}<Text style={styles.secondaryButtonText}>{state.loadingMore ? 'Loading...' : 'Load More'}</Text></Pressable></View> : null}</View>;
   }
 
-  return <View style={styles.container}><Stack.Screen options={{ title: 'Controlled Accessibility Evaluations' }} /><ScrollView contentContainerStyle={styles.content}><Text accessibilityRole="header" style={styles.pageTitle}>Controlled Accessibility Evaluations</Text><Text style={styles.provenanceNotice}>These are automated accessibility evaluations produced from controlled scanner fixtures.{"\n"}They are separate from SiteProbe&apos;s synthetic public scan history.{"\n"}Viewing them does not run axe or start a scan.</Text><Text style={styles.disclaimer}>Automated accessibility checks are not equivalent to full WCAG conformance testing.</Text>{renderState()}<Pressable accessibilityLabel="Back to Home" accessibilityRole="button" onPress={goHome} style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}><Text style={styles.secondaryButtonText}>Back to Home</Text></Pressable></ScrollView></View>;
+  return <View accessibilityRole={"main" as never} style={styles.container}><Stack.Screen options={{ title: 'Controlled Accessibility Evaluations' }} /><ScrollView contentContainerStyle={styles.content}><Text accessibilityRole="header" style={styles.pageTitle}>Controlled Accessibility Evaluations</Text><Text style={styles.provenanceNotice}>These are automated accessibility evaluations with explicit source attribution.{"\n"}They are separate from SiteProbe&apos;s synthetic public scan history.{"\n"}Viewing them does not run axe or start a scan.</Text><Text style={styles.disclaimer}>Automated accessibility checks are not equivalent to full WCAG conformance testing.</Text><View accessibilityRole={"tablist" as never} style={styles.filterRow}>{([['all', 'All'], ['real-site-smoke-test', 'Real-site Smoke Tests'], ['controlled-fixture', 'Controlled Fixtures']] as const).map(([value, label]) => <Pressable accessibilityRole={"tab" as never} accessibilityState={{ selected: sourceFilter === value }} key={value} onPress={() => setSourceFilter(value)} style={({ pressed }) => [styles.filterChip, sourceFilter === value && styles.filterChipSelected, pressed && styles.buttonPressed]}><Text style={[styles.filterChipText, sourceFilter === value && styles.filterChipTextSelected]}>{label}</Text></Pressable>)}</View>{renderState()}<Pressable accessibilityLabel="Back to Home" accessibilityRole="button" onPress={goHome} style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}><Text style={styles.secondaryButtonText}>Back to Home</Text></Pressable></ScrollView></View>;
 }
 
 const styles = StyleSheet.create({
@@ -149,6 +155,12 @@ const styles = StyleSheet.create({
   cardPressed: { opacity: 0.8 },
   requestedUrl: { color: '#1A202C', fontSize: 18, lineHeight: 25 },
   source: { color: '#2B6CB0', fontSize: 15, fontWeight: '700', marginTop: 12 },
+  provenanceBadge: { alignSelf: 'flex-start', backgroundColor: '#EBF8FF', borderColor: '#90CDF4', borderRadius: 999, borderWidth: 1, color: '#2A4365', fontSize: 13, fontWeight: '700', marginTop: 10, paddingHorizontal: 10, paddingVertical: 5 },
+  filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 16 },
+  filterChip: { borderColor: '#CBD5E0', borderRadius: 999, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8 },
+  filterChipSelected: { backgroundColor: '#EBF8FF', borderColor: '#2563EB' },
+  filterChipText: { color: '#4A5568', fontSize: 13, fontWeight: '600' },
+  filterChipTextSelected: { color: '#1D4ED8' },
   timestamp: { color: '#4A5568', fontSize: 14, marginTop: 8 },
   summary: { color: '#2D3748', fontSize: 14, lineHeight: 22, marginTop: 12 },
   failureStatus: { color: '#9B2C2C', fontSize: 15, fontWeight: '700', lineHeight: 23, marginTop: 12 },

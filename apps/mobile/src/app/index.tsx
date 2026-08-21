@@ -50,7 +50,7 @@ export default function HomeScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View accessibilityRole={"main" as never} style={styles.container}>
       <View style={styles.content}>
         <Text accessibilityRole="header" style={styles.title}>
           SiteProbe

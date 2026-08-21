@@ -1,5 +1,6 @@
 import type {
   ControlledQaEvaluationListItem,
+  ControlledEvaluationProvenance,
   QaCategory,
   QaEvaluationSummary,
   QaEvidence,
@@ -7,10 +8,22 @@ import type {
   QaSeverity,
 } from '@siteprobe/contracts';
 
-export function formatEvaluationSource(item: Pick<ControlledQaEvaluationListItem, 'source' | 'evaluatorVersion'>): string {
+export function formatEvaluationSource(item: Pick<ControlledQaEvaluationListItem, 'source' | 'evaluatorVersion'> & { provenance?: ControlledEvaluationProvenance }): string {
   return item.source === 'controlled-scanner'
     ? `Controlled scanner · Evaluator v${item.evaluatorVersion}`
     : item.source;
+}
+
+export function formatEvaluationProvenance(provenance: ControlledEvaluationProvenance | undefined): string {
+  if (provenance === 'controlled-fixture') return 'Controlled Fixture';
+  if (provenance === 'real-site-smoke-test') return 'Real-site Smoke Test';
+  return 'Legacy / Unknown Source';
+}
+
+export function formatEvaluationProvenanceDescription(provenance: ControlledEvaluationProvenance | undefined): string {
+  if (provenance === 'controlled-fixture') return 'Produced from a repository-controlled browser fixture.';
+  if (provenance === 'real-site-smoke-test') return 'Produced from a developer-only real-site smoke scan.';
+  return 'Origin could not be determined for this historical result.';
 }
 
 export function formatEvaluationSummary(summary: QaEvaluationSummary): string {

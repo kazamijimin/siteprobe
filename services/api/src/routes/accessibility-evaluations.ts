@@ -20,6 +20,8 @@ import {
   type AccessibilityEvaluationRepository,
 } from "../accessibility-evaluations/repository.js";
 import type { QaEvaluationRepository } from "../evaluations/repository.js";
+import { isControlledEvaluationUrl } from "../real-site-policy.js";
+import { isControlledProvenanceTargetAllowed, resolveControlledProvenance } from "../evaluations/provenance.js";
 
 const ACCESSIBILITY_BODY_LIMIT_BYTES = 64 * 1024;
 
@@ -29,6 +31,7 @@ type AccessibilityRouteOptions = {
   publicReadEnabled: boolean;
   qaRepository: QaEvaluationRepository;
   qaPublicReadEnabled: boolean;
+  realSiteSmokeTestEnabled: boolean;
 };
 
 function errorEnvelope(code: string, message: string, requestId: string, details?: Array<{ path: string; message: string }>) {
@@ -53,19 +56,6 @@ function authorize(request: { headers: { authorization?: string }; id: string },
     return false;
   }
   return true;
-}
-
-function isControlledFixtureUrl(value: string | null): boolean {
-  if (value === null) return true;
-  try {
-    const url = new URL(value);
-    return (url.protocol === "http:" || url.protocol === "https:")
-      && url.hostname === "fixture.invalid"
-      && !url.username
-      && !url.password;
-  } catch {
-    return false;
-  }
 }
 
 function encodeCursor(position: { createdAt: string; id: string }): string {
@@ -93,9 +83,10 @@ export const accessibilityEvaluationRoutes = (options: AccessibilityRouteOptions
         parsed.error.issues.map((issue) => ({ path: issue.path.join(".") || "body", message: issue.message })),
       ));
     }
-    if (!isControlledFixtureUrl(parsed.data.requestedUrl) || !isControlledFixtureUrl(parsed.data.finalUrl)) {
-      return reply.code(400).send(errorEnvelope("VALIDATION_ERROR", "Accessibility evaluations must use repository-owned fixture URLs", request.id, [
-        { path: "requestedUrl", message: "Only fixture.invalid URLs are accepted" },
+    const provenance = resolveControlledProvenance(parsed.data.provenance, parsed.data.requestedUrl);
+    if (!isControlledProvenanceTargetAllowed(provenance, parsed.data.requestedUrl, parsed.data.finalUrl, options.realSiteSmokeTestEnabled) || !isControlledEvaluationUrl(parsed.data.requestedUrl, options.realSiteSmokeTestEnabled) || !isControlledEvaluationUrl(parsed.data.finalUrl, options.realSiteSmokeTestEnabled)) {
+      return reply.code(400).send(errorEnvelope("VALIDATION_ERROR", "Accessibility evaluation target is not allowed by the controlled developer policy", request.id, [
+        { path: "requestedUrl", message: "Only fixture.invalid URLs or the development ReaDirect allowlist are accepted" },
       ]));
     }
     try {
@@ -190,6 +181,7 @@ function projectPublicAccessibilityEvaluation(evaluation: AccessibilityEvaluatio
   const projected = accessibilityEvaluationPublicResponseSchema.safeParse({
     id: evaluation.id,
     source: evaluation.source,
+    provenance: evaluation.provenance,
     schemaVersion: evaluation.schemaVersion,
     evaluatorVersion: evaluation.evaluatorVersion,
     requestedUrl: evaluation.requestedUrl,
@@ -218,6 +210,7 @@ function projectPublicAccessibilityEvaluationListItem(evaluation: AccessibilityE
       ? {
           id: evaluation.id,
           source: evaluation.source,
+          provenance: evaluation.provenance,
           evaluatorVersion: evaluation.evaluatorVersion,
           requestedUrl: evaluation.requestedUrl,
           scannedAt: evaluation.scannedAt,
@@ -229,6 +222,7 @@ function projectPublicAccessibilityEvaluationListItem(evaluation: AccessibilityE
       : {
           id: evaluation.id,
           source: evaluation.source,
+          provenance: evaluation.provenance,
           evaluatorVersion: evaluation.evaluatorVersion,
           requestedUrl: evaluation.requestedUrl,
           scannedAt: evaluation.scannedAt,

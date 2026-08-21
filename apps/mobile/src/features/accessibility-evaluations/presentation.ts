@@ -1,10 +1,23 @@
 import type {
+  ControlledEvaluationProvenance,
   AccessibilityEvaluation,
   AccessibilityEvaluationListItem,
   AccessibilityImpact,
   AccessibilityRuleResult,
   AccessibilitySummary,
 } from '@siteprobe/contracts';
+
+export function formatAccessibilityProvenance(provenance: ControlledEvaluationProvenance | undefined): string {
+  if (provenance === 'controlled-fixture') return 'Controlled Fixture';
+  if (provenance === 'real-site-smoke-test') return 'Real-site Smoke Test';
+  return 'Legacy / Unknown Source';
+}
+
+export function formatAccessibilityProvenanceDescription(provenance: ControlledEvaluationProvenance | undefined): string {
+  if (provenance === 'controlled-fixture') return 'Produced from a repository-controlled browser fixture.';
+  if (provenance === 'real-site-smoke-test') return 'Produced from a developer-only real-site smoke scan.';
+  return 'Origin could not be determined for this historical result.';
+}
 
 export function formatAccessibilityListSource(item: Pick<AccessibilityEvaluationListItem, 'engine'>): string {
   return `Automated accessibility check · ${item.engine.engine} ${item.engine.engineVersion}`;

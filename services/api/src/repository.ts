@@ -4,10 +4,13 @@ import type { SiteProbeDatabase } from "./db/client.js";
 import { scans, type ScanRow } from "./db/schema.js";
 
 export interface ScanRepository {
-  create(scan: ScanResponse, requestedUrl?: string): Promise<ScanResponse> | ScanResponse;
+  create(scan: ScanInput, requestedUrl?: string): Promise<ScanResponse> | ScanResponse;
   findById(id: string): Promise<ScanResponse | undefined> | ScanResponse | undefined;
   list(options: ListScansOptions): Promise<ScanListPage> | ScanListPage;
 }
+
+/** Input accepted by repositories; legacy tests/callers may omit the synthetic marker. */
+export type ScanInput = Omit<ScanResponse, "provenance"> & { provenance?: "synthetic" };
 
 export type ScanListPosition = {
   createdAt: string;
@@ -77,9 +80,10 @@ type StoredScan = {
 export class InMemoryScanRepository implements ScanRepository {
   private readonly scans = new Map<string, StoredScan>();
 
-  create(scan: ScanResponse, requestedUrl = scan.url): ScanResponse {
-    this.scans.set(scan.id, { scan, requestedUrl });
-    return scan;
+  create(scan: ScanInput, requestedUrl = scan.url): ScanResponse {
+    const stored: ScanResponse = { ...scan, provenance: "synthetic" };
+    this.scans.set(stored.id, { scan: stored, requestedUrl });
+    return stored;
   }
 
   findById(id: string): ScanResponse | undefined {
@@ -104,6 +108,7 @@ export class InMemoryScanRepository implements ScanRepository {
 function mapScanRow(row: ScanRow): ScanResponse {
   return scanResponseSchema.parse({
     id: row.id,
+    provenance: "synthetic",
     url: row.normalizedUrl,
     status: row.status,
     score: row.overallScore,
@@ -120,7 +125,7 @@ function mapScanRow(row: ScanRow): ScanResponse {
 export class PostgresScanRepository implements ScanRepository {
   constructor(private readonly db: SiteProbeDatabase) {}
 
-  async create(scan: ScanResponse, requestedUrl = scan.url): Promise<ScanResponse> {
+  async create(scan: ScanInput, requestedUrl = scan.url): Promise<ScanResponse> {
     const [row] = await this.db
       .insert(scans)
       .values({

@@ -91,6 +91,7 @@ export type ScanSummary = z.infer<typeof scanSummarySchema>;
 export const scanResponseSchema = z
   .object({
     id: z.string().uuid(),
+    provenance: z.literal("synthetic"),
     url: normalizedUrlSchema,
     status: scanStatusSchema,
     score: z.number().min(0).max(100).nullable(),

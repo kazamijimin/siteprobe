@@ -87,7 +87,7 @@ describe("minimal Playwright scanner", () => {
     async (path) => {
       const result = await runFixture(path);
       expect(result.navigationSucceeded).toBe(true);
-      expect(result.failedRequests.some((request) => request.failureReason === "unsafe request target")).toBe(true);
+      expect(result.failedRequests.some((request) => request.failureReason === "unsafe request target" && request.attribution === "SCANNER_POLICY_BLOCK")).toBe(true);
     },
   );
 
@@ -96,14 +96,15 @@ describe("minimal Playwright scanner", () => {
     async (path) => {
       const result = await runFixture(path);
       expect(result.navigationSucceeded).toBe(true);
-      expect(result.failedRequests.some((request) => request.failureReason === "unsafe request target")).toBe(true);
+      expect(result.failedRequests.some((request) => request.failureReason === "unsafe request target" && request.attribution === "SCANNER_POLICY_BLOCK")).toBe(true);
     },
   );
 
   it("blocks POST requests while allowing the passive page navigation", async () => {
     const result = await runFixture("/post");
     expect(result.navigationSucceeded).toBe(true);
-    expect(result.failedRequests.some((request) => request.method === "POST")).toBe(true);
+    expect(result.failedRequests.some((request) => request.method === "POST" && request.attribution === "SCANNER_POLICY_BLOCK")).toBe(true);
+    expect(result.consoleErrors.some((message) => /ERR_BLOCKED_BY_CLIENT/i.test(message))).toBe(false);
   });
 
   it("enforces the request limit and returns a structured failure", async () => {

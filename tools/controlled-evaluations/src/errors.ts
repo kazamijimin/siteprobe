@@ -21,7 +21,9 @@ export type WorkflowErrorStage =
   | "SEO_INGESTION_VALIDATION_FAILURE"
   | "SEO_INGESTION_CONFLICT"
   | "SEO_INGESTION_UNAVAILABLE"
-  | "SEO_INGESTION_INVALID_RESPONSE";
+  | "SEO_INGESTION_INVALID_RESPONSE"
+  | "REAL_SITE_POLICY_FAILURE"
+  | "REAL_SITE_NAVIGATION_FAILURE";
 
 export class ControlledEvaluationError extends Error {
   readonly stage: WorkflowErrorStage;

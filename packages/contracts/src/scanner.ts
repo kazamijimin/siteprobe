@@ -41,6 +41,15 @@ export const scannerRunFailureCodeSchema = z.enum([
 
 export type ScannerRunFailureCode = z.infer<typeof scannerRunFailureCodeSchema>;
 
+/** Attribution for a captured request diagnostic. */
+export const scannerFailureAttributionSchema = z.enum([
+  "TARGET_FAILURE",
+  "SCANNER_POLICY_BLOCK",
+  "BROWSER_ENVIRONMENT",
+]);
+
+export type ScannerFailureAttribution = z.infer<typeof scannerFailureAttributionSchema>;
+
 export const scannerInternalErrorCodeSchema = z.enum([
   "UNAUTHORIZED",
   "INVALID_REQUEST",
@@ -105,6 +114,8 @@ export const scannerFailedRequestSchema = z
     method: z.string().max(16),
     resourceType: z.string().max(64),
     failureReason: z.string().max(512),
+    /** Optional for compatibility with scanner results produced before P13. */
+    attribution: scannerFailureAttributionSchema.optional(),
   })
   .strict();
 

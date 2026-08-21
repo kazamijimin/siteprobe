@@ -8,6 +8,7 @@ import {
 } from "@siteprobe/contracts";
 import type { SiteProbeDatabase } from "../db/client.js";
 import { qaEvaluations, type QaEvaluationRow } from "../db/schema.js";
+import { readStoredEvaluation, resolveControlledProvenance, storedEvaluation } from "./provenance.js";
 
 export class QaEvaluationPersistenceCorruptionError extends Error {
   readonly code = "QA_EVALUATION_PERSISTENCE_CORRUPTION";
@@ -54,16 +55,18 @@ function normalizeInput(input: ControlledQaEvaluationCreate): string {
 
 function toResponse(row: QaEvaluationRow): ControlledQaEvaluationResponse {
   try {
+    const stored = readStoredEvaluation<ControlledQaEvaluationCreate["evaluation"]>(row.evaluationJson, row.requestedUrl);
     return controlledQaEvaluationResponseSchema.parse({
       id: row.id,
       source: row.source,
+      provenance: stored.provenance,
       schemaVersion: row.schemaVersion,
       evaluatorVersion: row.evaluatorVersion,
       scannerRunId: row.scannerRunId,
       requestedUrl: row.requestedUrl,
       finalUrl: row.finalUrl,
       scannedAt: row.scannedAt.toISOString(),
-      evaluation: row.evaluationJson,
+      evaluation: stored.evaluation,
       createdAt: row.createdAt.toISOString(),
     });
   } catch (error) {
@@ -81,7 +84,7 @@ function rowFromInput(input: ControlledQaEvaluationCreate, id: string, createdAt
     requestedUrl: input.requestedUrl,
     finalUrl: input.finalUrl,
     scannedAt: new Date(input.scannedAt),
-    evaluationJson: input.evaluation,
+    evaluationJson: storedEvaluation(input.evaluation, input.provenance ?? "legacy-unknown"),
     createdAt,
   };
 }
@@ -120,7 +123,10 @@ export class InMemoryQaEvaluationRepository implements QaEvaluationRepository {
   private readonly byComposite = new Map<string, string>();
 
   create(input: ControlledQaEvaluationCreate) {
-    const parsed = controlledQaEvaluationCreateSchema.parse(structuredClone(input));
+    const parsed = controlledQaEvaluationCreateSchema.parse({
+      ...structuredClone(input),
+      provenance: resolveControlledProvenance(input.provenance, input.requestedUrl),
+    });
     const key = `${parsed.scannerRunId}:${parsed.evaluatorVersion}`;
     const existingId = this.byComposite.get(key);
     if (existingId) {
@@ -130,6 +136,7 @@ export class InMemoryQaEvaluationRepository implements QaEvaluationRepository {
       const existingInput = {
         schemaVersion: response.schemaVersion,
         evaluatorVersion: response.evaluatorVersion,
+        provenance: response.provenance,
         scannerRunId: response.scannerRunId,
         requestedUrl: response.requestedUrl,
         finalUrl: response.finalUrl,
@@ -170,7 +177,10 @@ export class PostgresQaEvaluationRepository implements QaEvaluationRepository {
   constructor(private readonly db: SiteProbeDatabase) {}
 
   async create(input: ControlledQaEvaluationCreate) {
-    const parsed = controlledQaEvaluationCreateSchema.parse(structuredClone(input));
+    const parsed = controlledQaEvaluationCreateSchema.parse({
+      ...structuredClone(input),
+      provenance: resolveControlledProvenance(input.provenance, input.requestedUrl),
+    });
     const id = randomUUID();
     try {
       const inserted = await this.db.insert(qaEvaluations).values(rowFromInput(parsed, id, new Date())).onConflictDoNothing({
@@ -185,6 +195,7 @@ export class PostgresQaEvaluationRepository implements QaEvaluationRepository {
     const existingInput = {
       schemaVersion: existing.schemaVersion,
       evaluatorVersion: existing.evaluatorVersion,
+      provenance: existing.provenance,
       scannerRunId: existing.scannerRunId,
       requestedUrl: existing.requestedUrl,
       finalUrl: existing.finalUrl,

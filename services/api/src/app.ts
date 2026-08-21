@@ -40,6 +40,7 @@ export type BuildAppOptions = {
   qaEvaluationPublicReadEnabled?: boolean;
   accessibilityEvaluationRepository?: AccessibilityEvaluationRepository;
   accessibilityEvaluationPublicReadEnabled?: boolean;
+  realSiteSmokeTestEnabled?: boolean;
   seoEvaluationRepository?: SeoEvaluationRepository;
 };
 
@@ -110,6 +111,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     publicReadEnabled: options.qaEvaluationPublicReadEnabled ?? false,
     accessibilityRepository: accessibilityEvaluationRepository,
     accessibilityPublicReadEnabled: options.accessibilityEvaluationPublicReadEnabled ?? false,
+    realSiteSmokeTestEnabled: options.realSiteSmokeTestEnabled ?? false,
   }));
   app.register(accessibilityEvaluationRoutes({
     repository: accessibilityEvaluationRepository,
@@ -117,7 +119,8 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     publicReadEnabled: options.accessibilityEvaluationPublicReadEnabled ?? false,
     qaRepository: qaEvaluationRepository,
     qaPublicReadEnabled: options.qaEvaluationPublicReadEnabled ?? false,
+    realSiteSmokeTestEnabled: options.realSiteSmokeTestEnabled ?? false,
   }));
-  app.register(seoEvaluationRoutes({ repository: seoEvaluationRepository, token: options.qaEvaluationInternalToken }));
+  app.register(seoEvaluationRoutes({ repository: seoEvaluationRepository, token: options.qaEvaluationInternalToken, realSiteSmokeTestEnabled: options.realSiteSmokeTestEnabled ?? false }));
   return app;
 }

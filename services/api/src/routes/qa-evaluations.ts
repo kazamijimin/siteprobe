@@ -20,6 +20,8 @@ import {
   type QaEvaluationRepository,
 } from "../evaluations/repository.js";
 import type { AccessibilityEvaluationRepository } from "../accessibility-evaluations/repository.js";
+import { isControlledEvaluationUrl } from "../real-site-policy.js";
+import { isControlledProvenanceTargetAllowed, resolveControlledProvenance } from "../evaluations/provenance.js";
 
 type QaRouteOptions = {
   repository: QaEvaluationRepository;
@@ -27,6 +29,7 @@ type QaRouteOptions = {
   publicReadEnabled: boolean;
   accessibilityRepository: AccessibilityEvaluationRepository;
   accessibilityPublicReadEnabled: boolean;
+  realSiteSmokeTestEnabled: boolean;
 };
 
 function errorEnvelope(code: string, message: string, requestId: string, details?: Array<{ path: string; message: string }>) {
@@ -57,6 +60,7 @@ function projectPublicEvaluation(evaluation: ControlledQaEvaluationResponse, rel
   const projected = controlledQaEvaluationPublicResponseSchema.safeParse({
     id: evaluation.id,
     source: evaluation.source,
+    provenance: evaluation.provenance,
     schemaVersion: evaluation.schemaVersion,
     evaluatorVersion: evaluation.evaluatorVersion,
     requestedUrl: evaluation.requestedUrl,
@@ -76,6 +80,7 @@ function projectPublicEvaluationListItem(evaluation: ControlledQaEvaluationRespo
   const projected = controlledQaEvaluationListItemSchema.safeParse({
     id: evaluation.id,
     source: evaluation.source,
+    provenance: evaluation.provenance,
     evaluatorVersion: evaluation.evaluatorVersion,
     requestedUrl: evaluation.requestedUrl,
     scannedAt: evaluation.scannedAt,
@@ -112,6 +117,12 @@ export const qaEvaluationRoutes = (options: QaRouteOptions): FastifyPluginAsync 
         request.id,
         parsed.error.issues.map((issue) => ({ path: issue.path.join(".") || "body", message: issue.message })),
       ));
+    }
+    const provenance = resolveControlledProvenance(parsed.data.provenance, parsed.data.requestedUrl);
+    if (!isControlledProvenanceTargetAllowed(provenance, parsed.data.requestedUrl, parsed.data.finalUrl, options.realSiteSmokeTestEnabled) || (options.realSiteSmokeTestEnabled && (!isControlledEvaluationUrl(parsed.data.requestedUrl, true) || !isControlledEvaluationUrl(parsed.data.finalUrl, true)))) {
+      return reply.code(400).send(errorEnvelope("VALIDATION_ERROR", "Evaluation target is not allowed by the controlled developer policy", request.id, [
+        { path: "requestedUrl", message: "Only fixture.invalid URLs or the development ReaDirect allowlist are accepted" },
+      ]));
     }
     try {
       const result = await options.repository.create(parsed.data as ControlledQaEvaluationCreate);

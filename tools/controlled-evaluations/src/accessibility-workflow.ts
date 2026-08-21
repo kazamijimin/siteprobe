@@ -37,8 +37,9 @@ export type AccessibilityWorkflowDependencies = {
   accessibilityApi?: AccessibilityEvaluationApiClient;
 };
 
-function corePayload(scannerResult: ScannerResult, evaluation: QaEvaluation) {
+function corePayload(scannerResult: ScannerResult, evaluation: QaEvaluation, provenance: "controlled-fixture" | "real-site-smoke-test" = "controlled-fixture") {
   return controlledQaEvaluationCreateSchema.parse({
+    provenance,
     schemaVersion: QA_SCHEMA_VERSION,
     evaluatorVersion: QA_EVALUATOR_VERSION,
     scannerRunId: scannerResult.scanId,
@@ -49,9 +50,10 @@ function corePayload(scannerResult: ScannerResult, evaluation: QaEvaluation) {
   });
 }
 
-function accessibilityPayload(scannerResult: ScannerResult, result: ControlledAccessibilityRunResult["accessibility"]): AccessibilityEvaluationCreate {
+export function buildAccessibilityIngestionPayload(scannerResult: ScannerResult, result: ControlledAccessibilityRunResult["accessibility"], provenance: "controlled-fixture" | "real-site-smoke-test" = "controlled-fixture"): AccessibilityEvaluationCreate {
   if (result.status === "failed") throw new ControlledEvaluationError("ACCESSIBILITY_ENGINE_FAILURE", "Accessibility engine execution failed", { scannerRunId: scannerResult.scanId, safeCode: result.code });
   return accessibilityEvaluationCreateSchema.parse({
+    provenance,
     schemaVersion: ACCESSIBILITY_SCHEMA_VERSION,
     evaluatorVersion: ACCESSIBILITY_EVALUATOR_VERSION,
     scannerRunId: scannerResult.scanId,
@@ -89,7 +91,7 @@ export async function runControlledAccessibilityWorkflow(config: ControlledEvalu
     throw new ControlledEvaluationError("INGESTION_INVALID_RESPONSE", "API returned an invalid controlled evaluation", { scannerRunId: scannerResult.scanId });
   }
   let payload: AccessibilityEvaluationCreate;
-  try { payload = accessibilityPayload(scannerResult, run.accessibility); }
+  try { payload = buildAccessibilityIngestionPayload(scannerResult, run.accessibility); }
   catch (error) {
     if (error instanceof ControlledEvaluationError) throw error;
     throw new ControlledEvaluationError("ACCESSIBILITY_RESULT_INVALID", "Accessibility result failed contract validation", { scannerRunId: scannerResult.scanId });

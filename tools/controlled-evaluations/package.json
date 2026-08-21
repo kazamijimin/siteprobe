@@ -29,6 +29,7 @@
     "fixture": "node --import tsx/esm src/cli.ts",
     "accessibility": "node --import tsx/esm src/accessibility-cli.ts",
     "seo": "node --import tsx/esm src/seo-cli.ts",
+    "real-scan": "node --import tsx/esm src/real-site-cli.ts",
     "pretypecheck": "pnpm --filter @siteprobe/contracts build",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "pretest": "pnpm --filter @siteprobe/contracts build",

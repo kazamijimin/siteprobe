@@ -1,9 +1,10 @@
-import type { BrowserContext, Page, Route, WebSocketRoute } from "playwright";
+import type { BrowserContext, Page, Request, Route, WebSocketRoute } from "playwright";
 
 import { assertSafeRequestTarget } from "../security/request-policy.js";
 import { assertSafeRedirectTarget } from "../security/redirect-policy.js";
 import type { ScannerDnsResolver } from "../security/dns-policy.js";
 import { createFailedRequest } from "../scan/result.js";
+import { ScannerSecurityError } from "../errors.js";
 
 type NetworkLimits = {
   maxRequests: number;
@@ -17,6 +18,8 @@ export type NetworkPolicyState = {
   blockedWebSockets: number;
   blockedPopups: number;
   failedRequests: ReturnType<typeof createFailedRequest>[];
+  policyBlockedRequests: WeakSet<Request>;
+  policyBlockedConsoleBudget: number;
   lastBlockReason?: string;
 };
 
@@ -29,6 +32,8 @@ export function createNetworkPolicyState(): NetworkPolicyState {
     blockedWebSockets: 0,
     blockedPopups: 0,
     failedRequests: [],
+    policyBlockedRequests: new WeakSet<Request>(),
+    policyBlockedConsoleBudget: 0,
   };
 }
 
@@ -52,6 +57,19 @@ function recordFailure(
   }
 }
 
+function recordPolicyBlock(
+  state: NetworkPolicyState,
+  request: Request | undefined,
+  failure: Parameters<typeof createFailedRequest>[0],
+  maxRecordedErrors: number,
+): void {
+  if (request) {
+    state.policyBlockedRequests.add(request);
+    state.policyBlockedConsoleBudget = Math.min(state.policyBlockedConsoleBudget + 1, maxRecordedErrors);
+  }
+  recordFailure(state, { ...failure, attribution: "SCANNER_POLICY_BLOCK" }, maxRecordedErrors);
+}
+
 async function abortRoute(route: Route): Promise<void> {
   try {
     await route.abort("blockedbyclient");
@@ -67,6 +85,7 @@ export async function installNetworkPolicy(
   state: NetworkPolicyState,
   getPage: () => Page | undefined,
   testOnlyRouteHandler?: TestOnlyRouteHandler,
+  topLevelNavigationHosts: readonly string[] = [],
 ): Promise<void> {
   await context.route("**/*", async (route) => {
     const request = route.request();
@@ -75,8 +94,9 @@ export async function installNetworkPolicy(
     if (state.requestCount > policy.maxRequests) {
       state.requestLimitExceeded = true;
       state.lastBlockReason = "request limit exceeded";
-      recordFailure(
+      recordPolicyBlock(
         state,
+        request,
         {
           url: request.url(),
           method: request.method(),
@@ -92,8 +112,9 @@ export async function installNetworkPolicy(
 
     if (redirectDepth(route) > policy.maxRedirects) {
       state.lastBlockReason = "redirect limit exceeded";
-      recordFailure(
+      recordPolicyBlock(
         state,
+        request,
         {
           url: request.url(),
           method: request.method(),
@@ -107,6 +128,12 @@ export async function installNetworkPolicy(
     }
 
     try {
+      if (topLevelNavigationHosts.length > 0 && request.resourceType() === "document") {
+        const hostname = new URL(request.url()).hostname.toLowerCase();
+        if (!topLevelNavigationHosts.includes(hostname)) {
+          throw new ScannerSecurityError("UNSAFE_REDIRECT", "Top-level navigation escaped the developer allowlist");
+        }
+      }
       if (request.redirectedFrom()) {
         await assertSafeRedirectTarget(request.url(), resolver);
       } else {
@@ -119,8 +146,9 @@ export async function installNetworkPolicy(
       await route.continue();
     } catch (error) {
       state.lastBlockReason = error instanceof Error ? error.message : "unsafe request target";
-      recordFailure(
+      recordPolicyBlock(
         state,
+        request,
         {
           url: request.url(),
           method: request.method(),
@@ -136,8 +164,9 @@ export async function installNetworkPolicy(
   await context.routeWebSocket(() => true, async (webSocket: WebSocketRoute) => {
     state.blockedWebSockets += 1;
     state.lastBlockReason = "websocket blocked";
-    recordFailure(
+    recordPolicyBlock(
       state,
+      undefined,
       {
         url: webSocket.url(),
         method: "WEBSOCKET",
@@ -159,7 +188,19 @@ export function appendPopupDiagnostic(state: NetworkPolicyState, url: string, ma
       method: "POPUP",
       resourceType: "popup",
       failureReason: "popup blocked",
+      attribution: "SCANNER_POLICY_BLOCK",
     },
     max,
   );
+}
+
+export function isPolicyBlockedRequest(state: NetworkPolicyState, request: Request): boolean {
+  return state.policyBlockedRequests.has(request);
+}
+
+export function consumePolicyBlockedConsoleDiagnostic(state: NetworkPolicyState, message: string): boolean {
+  if (state.policyBlockedConsoleBudget <= 0) return false;
+  if (!/ERR_BLOCKED_BY_CLIENT\.Inspector/i.test(message)) return false;
+  state.policyBlockedConsoleBudget -= 1;
+  return true;
 }

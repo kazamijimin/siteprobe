@@ -309,7 +309,7 @@ export default function ScanHistoryScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View accessibilityRole={"main" as never} style={styles.container}>
       <Stack.Screen options={{ title: 'Scan History' }} />
       <FlatList
         contentContainerStyle={styles.listContent}

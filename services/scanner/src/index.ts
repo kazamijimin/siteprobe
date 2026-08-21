@@ -51,6 +51,7 @@ export {
   type ScannerRunLimits,
   type ScannerRunOptions,
 } from "./scan/run-scan.js";
+export { REAL_SITE_HOSTS, parseRealSiteUrl, runRealSiteScan, type RealSiteScanResult } from "./real-site.js";
 export {
   boundedText,
   createFailedRequest,

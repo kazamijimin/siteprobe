@@ -123,6 +123,20 @@ describe("evaluateScannerResult", () => {
     expect(result.evidence).toMatchObject({ kind: "failedRequests", recordedCount: 1 });
   });
 
+  it("separates scanner policy blocks from target failures", () => {
+    const result = finding(makeScannerResult({
+      failedRequests: [{
+        url: "http://fixture.invalid/rum",
+        method: "POST",
+        resourceType: "fetch",
+        failureReason: "unsafe request method",
+        attribution: "SCANNER_POLICY_BLOCK",
+      }],
+    }), "NO_FAILED_REQUESTS");
+    expect(result).toMatchObject({ status: "passed", severity: "info" });
+    expect(result.evidence).toMatchObject({ targetFailureCount: 0, scannerPolicyBlockCount: 1 });
+  });
+
   it.each([
     { navigationSucceeded: false },
     { navigationSucceeded: false, failureCode: "NAVIGATION_TIMEOUT" as const },

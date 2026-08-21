@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { controlledEvaluationProvenanceSchema } from "./provenance.js";
 
 export const SEO_SCHEMA_VERSION = 1 as const;
 export const SEO_EVALUATOR_VERSION = 1 as const;
@@ -126,8 +127,8 @@ function serializedSizeGuard(value: unknown, ctx: z.RefinementCtx): void {
   try { if (new TextEncoder().encode(JSON.stringify(value)).byteLength > SEO_MAX_SERIALIZED_BYTES) ctx.addIssue({ code: "custom", message: "Serialized SEO evaluation exceeds 32 KiB" }); }
   catch { ctx.addIssue({ code: "custom", message: "SEO evaluation could not be serialized" }); }
 }
-export const seoEvaluationCreateSchema = z.object(metadataBase).strict().superRefine(serializedSizeGuard);
-export const seoEvaluationResponseSchema = z.object({ id: z.string().uuid(), source: z.literal("controlled-scanner"), ...metadataBase, createdAt: z.string().datetime({ offset: true }) }).strict().superRefine(serializedSizeGuard);
+export const seoEvaluationCreateSchema = z.object({ provenance: controlledEvaluationProvenanceSchema.optional(), ...metadataBase }).strict().superRefine(serializedSizeGuard);
+export const seoEvaluationResponseSchema = z.object({ id: z.string().uuid(), source: z.literal("controlled-scanner"), provenance: controlledEvaluationProvenanceSchema, ...metadataBase, createdAt: z.string().datetime({ offset: true }) }).strict().superRefine(serializedSizeGuard);
 export const seoEvaluationIdParamsSchema = z.object({ id: z.string().uuid() }).strict();
 
 export type SeoEvidence = z.infer<typeof seoEvidenceSchema>;

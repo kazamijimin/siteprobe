@@ -17,6 +17,7 @@ const metadata = {
   schemaVersion: ACCESSIBILITY_SCHEMA_VERSION,
   evaluatorVersion: ACCESSIBILITY_EVALUATOR_VERSION,
   scannerRunId: "5d41977d-ffb9-4388-af0a-0f74c8ee64ab",
+  provenance: "controlled-fixture" as const,
   requestedUrl: "http://fixture.invalid/",
   finalUrl: "http://fixture.invalid/",
   scannedAt: "2026-08-21T00:00:00.000Z",
@@ -129,6 +130,7 @@ describe("accessibility evaluation contracts", () => {
     const response = accessibilityEvaluationPublicResponseSchema.parse({
       id: "6d41977d-ffb9-4388-af0a-0f74c8ee64ab",
       source: "controlled-scanner",
+      provenance: "controlled-fixture",
       schemaVersion: 1,
       evaluatorVersion: 1,
       requestedUrl: "http://fixture.invalid/accessibility-clean",
@@ -165,6 +167,7 @@ describe("accessibility evaluation contracts", () => {
     const base = {
       id: "6d41977d-ffb9-4388-af0a-0f74c8ee64ab",
       source: "controlled-scanner" as const,
+      provenance: "controlled-fixture" as const,
       evaluatorVersion: 1 as const,
       requestedUrl: "http://fixture.invalid/accessibility-clean",
       scannedAt: "2026-08-21T00:00:00.000Z",

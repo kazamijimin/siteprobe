@@ -28,7 +28,10 @@ export type {
   ScanStatus,
   ScanSummary,
 } from "./scan.js";
+export { evaluationProvenanceSchema, controlledEvaluationProvenanceSchema } from "./provenance.js";
+export type { EvaluationProvenance, ControlledEvaluationProvenance } from "./provenance.js";
 export {
+  scannerFailureAttributionSchema,
   scannerSafetyEvaluationSchema,
   scannerFailedRequestSchema,
   scannerInternalErrorCodeSchema,
@@ -38,6 +41,7 @@ export {
   scannerSecurityFailureCodeSchema,
   scannerValidationRequestSchema,
 } from "./scanner.js";
+export type { ScannerFailureAttribution } from "./scanner.js";
 export {
   QA_EVALUATOR_VERSION,
   QA_SCHEMA_VERSION,

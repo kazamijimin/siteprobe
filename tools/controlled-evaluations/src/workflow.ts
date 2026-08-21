@@ -35,8 +35,10 @@ export type WorkflowDependencies = {
 export function buildIngestionPayload(
   scannerResult: ScannerResult,
   evaluation: QaEvaluation,
+  provenance: "controlled-fixture" | "real-site-smoke-test" = "controlled-fixture",
 ): ControlledQaEvaluationCreate {
   return controlledQaEvaluationCreateSchema.parse({
+    provenance,
     schemaVersion: QA_SCHEMA_VERSION,
     evaluatorVersion: QA_EVALUATOR_VERSION,
     scannerRunId: scannerResult.scanId,

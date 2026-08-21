@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { scannerRunFailureCodeSchema } from "./scanner.js";
+import { scannerFailureAttributionSchema, scannerRunFailureCodeSchema } from "./scanner.js";
+import { controlledEvaluationProvenanceSchema } from "./provenance.js";
 
 export const QA_SCHEMA_VERSION = 1 as const;
 export const QA_EVALUATOR_VERSION = 1 as const;
@@ -26,6 +27,7 @@ export const qaFailedRequestEvidenceSchema = z.object({
   method: boundedString(16),
   resourceType: boundedString(64),
   failureReason: boundedString(256),
+  attribution: scannerFailureAttributionSchema.optional(),
 }).strict();
 
 export const qaEvidenceSchema = z.discriminatedUnion("kind", [
@@ -55,6 +57,8 @@ export const qaEvidenceSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("failedRequests"),
     recordedCount: z.number().int().nonnegative(),
+    targetFailureCount: z.number().int().nonnegative().optional(),
+    scannerPolicyBlockCount: z.number().int().nonnegative().optional(),
     samples: z.array(qaFailedRequestEvidenceSchema).max(3),
     samplesTruncated: z.boolean(),
   }).strict(),
@@ -135,7 +139,10 @@ const metadataBase = {
   evaluation: qaEvaluationSchema,
 };
 
-export const controlledQaEvaluationCreateSchema = z.object(metadataBase).strict().superRefine((input, ctx) => {
+export const controlledQaEvaluationCreateSchema = z.object({
+  provenance: controlledEvaluationProvenanceSchema.optional(),
+  ...metadataBase,
+}).strict().superRefine((input, ctx) => {
   const navigation = input.evaluation.findings[0]?.evidence;
   if (!navigation || navigation.kind !== "navigation") return;
   if (navigation.requestedUrl !== input.requestedUrl) {
@@ -160,6 +167,7 @@ const metadataConsistency = (input: { requestedUrl: string; finalUrl: string | n
 export const controlledQaEvaluationResponseSchema = z.object({
   id: z.string().uuid(),
   source: z.literal("controlled-scanner"),
+  provenance: controlledEvaluationProvenanceSchema,
   ...metadataBase,
   createdAt: z.string().datetime({ offset: true }),
 }).strict().superRefine(metadataConsistency);
@@ -167,6 +175,7 @@ export const controlledQaEvaluationResponseSchema = z.object({
 export const controlledQaEvaluationPublicResponseSchema = z.object({
   id: z.string().uuid(),
   source: z.literal("controlled-scanner"),
+  provenance: controlledEvaluationProvenanceSchema,
   schemaVersion: qaSchemaVersionSchema,
   evaluatorVersion: qaEvaluatorVersionSchema,
   requestedUrl: z.string().min(1).max(2048),
@@ -180,6 +189,7 @@ export const controlledQaEvaluationPublicResponseSchema = z.object({
 export const controlledQaEvaluationListItemSchema = z.object({
   id: z.string().uuid(),
   source: z.literal("controlled-scanner"),
+  provenance: controlledEvaluationProvenanceSchema,
   evaluatorVersion: qaEvaluatorVersionSchema,
   requestedUrl: z.string().min(1).max(2048),
   scannedAt: z.string().datetime({ offset: true }),

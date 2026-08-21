@@ -11,6 +11,7 @@ import { createScan, getScan, listScans } from '@/features/scans/scan-api';
 
 const scanFixture = {
   id: '00000000-0000-4000-8000-000000000000',
+  provenance: 'synthetic' as const,
   url: 'https://example.com/',
   status: 'completed',
   score: 87,
@@ -36,6 +37,19 @@ describe('mobile API configuration and client', () => {
 
     expect(getApiBaseUrl()).toBe('http://127.0.0.1:3000');
     expect(buildApiUrl('/api/scans')).toBe('http://127.0.0.1:3000/api/scans');
+  });
+
+  it('maps the Android emulator target to host loopback for Expo web only', () => {
+    process.env.EXPO_PUBLIC_API_URL = 'http://10.0.2.2:3000';
+    vi.stubGlobal('window', { location: { hostname: 'localhost' } });
+
+    expect(getApiBaseUrl()).toBe('http://127.0.0.1:3000');
+  });
+
+  it('keeps the emulator target outside a loopback browser', () => {
+    process.env.EXPO_PUBLIC_API_URL = 'http://10.0.2.2:3000';
+
+    expect(getApiBaseUrl()).toBe('http://10.0.2.2:3000');
   });
 
   it('fails clearly when the API origin is missing or invalid', () => {

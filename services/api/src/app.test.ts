@@ -138,7 +138,7 @@ describe("SiteProbe fake API", () => {
     });
     expect(second.statusCode).toBe(200);
     expect(listScansResponseSchema.parse(second.json())).toEqual({
-      items: [scans[0]],
+      items: [{ ...scans[0], provenance: "synthetic" }],
       nextCursor: null,
     });
   });

@@ -31,13 +31,14 @@ export function sanitizeTitle(value: string | null): string | null {
 }
 
 export function createFailedRequest(
-  request: Pick<ScannerFailedRequest, "url" | "method" | "resourceType" | "failureReason">,
+  request: Pick<ScannerFailedRequest, "url" | "method" | "resourceType" | "failureReason"> & Partial<Pick<ScannerFailedRequest, "attribution">>,
 ): ScannerFailedRequest {
   return {
     url: sanitizeUrl(request.url),
     method: boundedText(request.method, 16),
     resourceType: boundedText(request.resourceType, 64),
     failureReason: boundedText(request.failureReason, 512),
+    ...(request.attribution ? { attribution: request.attribution } : {}),
   };
 }
 

@@ -5,6 +5,7 @@ import type { ControlledQaEvaluationListItem } from '@siteprobe/contracts';
 import { ApiError } from '@/services/api/client';
 import { listQaEvaluations } from '@/features/evaluations/qa-evaluation-api';
 import {
+  formatEvaluationProvenance,
   formatEvaluationSource,
   formatEvaluationSummary,
   formatEvaluationTimestamp,
@@ -23,6 +24,7 @@ type IndexState = {
   loadMoreError: string | null;
   message: string | null;
 };
+type SourceFilter = 'all' | 'real-site-smoke-test' | 'controlled-fixture';
 
 const initialState: IndexState = {
   status: 'loading',
@@ -66,6 +68,7 @@ function EvaluationCard({
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
       <Text selectable style={styles.requestedUrl}>{evaluation.requestedUrl}</Text>
+      <Text style={styles.provenanceBadge}>{formatEvaluationProvenance(evaluation.provenance)}</Text>
       <Text style={styles.source}>{formatEvaluationSource(evaluation)}</Text>
       <Text style={styles.timestamp}>Scanned: {formatEvaluationTimestamp(evaluation.scannedAt)}</Text>
       <Text style={styles.timestamp}>Persisted: {formatEvaluationTimestamp(evaluation.createdAt)}</Text>
@@ -79,6 +82,7 @@ export default function QaEvaluationIndexScreen() {
   const router = useRouter();
   const [state, setState] = useState<IndexState>(initialState);
   const [retryCount, setRetryCount] = useState(0);
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
   const controllers = useRef(new Set<AbortController>());
 
   useEffect(() => {
@@ -198,6 +202,7 @@ export default function QaEvaluationIndexScreen() {
       );
     }
 
+    const visibleEvaluations = state.evaluations.filter((evaluation) => sourceFilter === 'all' || evaluation.provenance === sourceFilter);
     if (state.evaluations.length === 0) {
       return (
         <View style={styles.emptyState}>
@@ -207,9 +212,13 @@ export default function QaEvaluationIndexScreen() {
       );
     }
 
+    if (visibleEvaluations.length === 0) {
+      return <View style={styles.emptyState}><Text accessibilityRole="header" style={styles.stateTitle}>No evaluations match this source.</Text></View>;
+    }
+
     return (
       <View>
-        {state.evaluations.map((evaluation) => (
+        {visibleEvaluations.map((evaluation) => (
           <EvaluationCard
             evaluation={evaluation}
             key={evaluation.id}
@@ -236,15 +245,22 @@ export default function QaEvaluationIndexScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View accessibilityRole={"main" as never} style={styles.container}>
       <Stack.Screen options={{ title: 'Controlled QA Evaluations' }} />
       <ScrollView contentContainerStyle={styles.content}>
         <Text accessibilityRole="header" style={styles.pageTitle}>Controlled QA Evaluations</Text>
         <Text style={styles.provenanceNotice}>
-          These are controlled QA evaluation snapshots.{"\n"}
+          These are controlled QA evaluation snapshots with explicit source attribution.{"\n"}
           They are separate from SiteProbe&apos;s synthetic public scan history.{"\n"}
           Viewing them does not start a scan.
         </Text>
+        <View accessibilityRole="tablist" style={styles.filterRow}>
+          {([['all', 'All'], ['real-site-smoke-test', 'Real-site Smoke Tests'], ['controlled-fixture', 'Controlled Fixtures']] as const).map(([value, label]) => (
+            <Pressable accessibilityRole="tab" accessibilityState={{ selected: sourceFilter === value }} key={value} onPress={() => setSourceFilter(value)} style={({ pressed }) => [styles.filterChip, sourceFilter === value && styles.filterChipSelected, pressed && styles.buttonPressed]}>
+              <Text style={[styles.filterChipText, sourceFilter === value && styles.filterChipTextSelected]}>{label}</Text>
+            </Pressable>
+          ))}
+        </View>
         {renderState()}
         <Pressable
           accessibilityLabel="Back to Home"
@@ -271,6 +287,12 @@ const styles = StyleSheet.create({
   cardPressed: { opacity: 0.8 },
   requestedUrl: { color: '#1A202C', fontSize: 18, lineHeight: 25 },
   source: { color: '#2B6CB0', fontSize: 15, fontWeight: '700', marginTop: 12 },
+  provenanceBadge: { alignSelf: 'flex-start', backgroundColor: '#EBF8FF', borderColor: '#90CDF4', borderRadius: 999, borderWidth: 1, color: '#2A4365', fontSize: 13, fontWeight: '700', marginTop: 10, paddingHorizontal: 10, paddingVertical: 5 },
+  filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 16 },
+  filterChip: { borderColor: '#CBD5E0', borderRadius: 999, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8 },
+  filterChipSelected: { backgroundColor: '#EBF8FF', borderColor: '#2563EB' },
+  filterChipText: { color: '#4A5568', fontSize: 13, fontWeight: '600' },
+  filterChipTextSelected: { color: '#1D4ED8' },
   timestamp: { color: '#4A5568', fontSize: 14, marginTop: 8 },
   summary: { color: '#2D3748', fontSize: 14, lineHeight: 22, marginTop: 12 },
   cardAction: { color: '#2563EB', fontSize: 16, fontWeight: '700', marginTop: 16 },

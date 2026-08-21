@@ -63,6 +63,10 @@ Set `EXPO_PUBLIC_API_URL` in `.env` using one of these local targets:
 - Physical Android over LAN: `http://<DEVELOPMENT-PC-LAN-IP>:3000`
 - Physical Android with `adb reverse`: `http://127.0.0.1:3000`
 
+When the configured value is the Android emulator target (`10.0.2.2`), Expo
+web automatically maps it to `http://127.0.0.1:3000` when opened on this PC.
+Native Android keeps using the configured emulator or device address.
+
 The API defaults to `127.0.0.1`; use an explicit `HOST=0.0.0.0` API override only for local device access. Do not expose it publicly.
 
 Use `pnpm mobile:android` when an Android emulator or device is available. Android development requires Android Studio, Android SDK 36, platform-tools, and an Android Virtual Device or physical device.

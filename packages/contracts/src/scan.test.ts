@@ -41,6 +41,7 @@ describe("scan contracts", () => {
   it("accepts a completed response with a nullable score", () => {
     const result = scanResponseSchema.parse({
       id: "00000000-0000-4000-8000-000000000000",
+      provenance: "synthetic",
       url: "https://example.com/",
       status: "completed",
       score: null,
@@ -55,6 +56,7 @@ describe("scan contracts", () => {
   it("rejects invalid score and summary values", () => {
     const base = {
       id: "00000000-0000-4000-8000-000000000000",
+      provenance: "synthetic",
       url: "https://example.com/",
       status: "completed",
       score: 101,

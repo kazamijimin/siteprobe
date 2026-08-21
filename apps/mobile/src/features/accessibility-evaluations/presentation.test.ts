@@ -22,7 +22,7 @@ describe('controlled accessibility presentation', () => {
 
   it('formats compact completed and navigation-failed list cards', () => {
     const completed = {
-      id: '6d41977d-ffb9-4388-af0a-0f74c8ee64ab', source: 'controlled-scanner' as const, evaluatorVersion: 1 as const,
+      id: '6d41977d-ffb9-4388-af0a-0f74c8ee64ab', source: 'controlled-scanner' as const, provenance: 'controlled-fixture' as const, evaluatorVersion: 1 as const,
       requestedUrl: 'http://fixture.invalid/accessibility-mixed', scannedAt: '2026-08-21T00:00:00.000Z', createdAt: '2026-08-21T00:01:00.000Z',
       engine: { engine: 'axe-core' as const, engineVersion: '4.13.0' as const }, status: 'completed' as const, summary,
     };

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { controlledEvaluationProvenanceSchema } from "./provenance.js";
 
 export const ACCESSIBILITY_SCHEMA_VERSION = 1 as const;
 export const ACCESSIBILITY_EVALUATOR_VERSION = 1 as const;
@@ -176,11 +177,15 @@ function assertMetadataConsistency(input: { requestedUrl: string; finalUrl: stri
   if (input.finalUrl !== null && input.finalUrl.length === 0) ctx.addIssue({ code: "custom", path: ["finalUrl"], message: "finalUrl must be null or non-empty" });
 }
 
-export const accessibilityEvaluationCreateSchema = z.object(metadataBase).strict().superRefine(assertMetadataConsistency);
+export const accessibilityEvaluationCreateSchema = z.object({
+  provenance: controlledEvaluationProvenanceSchema.optional(),
+  ...metadataBase,
+}).strict().superRefine(assertMetadataConsistency);
 
 export const accessibilityEvaluationResponseSchema = z.object({
   id: z.string().uuid(),
   source: z.literal("controlled-scanner"),
+  provenance: controlledEvaluationProvenanceSchema,
   ...metadataBase,
   createdAt: z.string().datetime({ offset: true }),
 }).strict().superRefine(assertMetadataConsistency);
@@ -212,6 +217,7 @@ const publicAccessibilityEvaluationSchema = accessibilityEvaluationSchema.superR
 export const accessibilityEvaluationPublicResponseSchema = z.object({
   id: z.string().uuid(),
   source: z.literal("controlled-scanner"),
+  provenance: controlledEvaluationProvenanceSchema,
   schemaVersion: accessibilitySchemaVersionSchema,
   evaluatorVersion: accessibilityEvaluatorVersionSchema,
   requestedUrl: z.string().min(1).max(2048),
@@ -231,6 +237,7 @@ const accessibilityEvaluationListEngineSchema = z.object({
 const accessibilityEvaluationListBase = {
   id: z.string().uuid(),
   source: z.literal("controlled-scanner"),
+  provenance: controlledEvaluationProvenanceSchema,
   evaluatorVersion: accessibilityEvaluatorVersionSchema,
   requestedUrl: z.string().min(1).max(2048),
   scannedAt: z.string().datetime({ offset: true }),

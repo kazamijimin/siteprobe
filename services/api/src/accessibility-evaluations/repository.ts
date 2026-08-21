@@ -8,6 +8,7 @@ import {
 } from "@siteprobe/contracts";
 import type { SiteProbeDatabase } from "../db/client.js";
 import { accessibilityEvaluations, type AccessibilityEvaluationRow } from "../db/schema.js";
+import { readStoredEvaluation, resolveControlledProvenance } from "../evaluations/provenance.js";
 
 export class AccessibilityEvaluationPersistenceCorruptionError extends Error {
   readonly code = "ACCESSIBILITY_EVALUATION_PERSISTENCE_CORRUPTION";
@@ -55,6 +56,7 @@ function normalizeInput(input: AccessibilityEvaluationCreate): string {
 function storedJson(input: AccessibilityEvaluationCreate) {
   return {
     evaluation: input.evaluation,
+    provenance: input.provenance ?? "legacy-unknown",
     adapter: input.adapter,
     adapterVersion: input.adapterVersion,
     rulesetTags: input.rulesetTags,
@@ -63,10 +65,12 @@ function storedJson(input: AccessibilityEvaluationCreate) {
 
 function toResponse(row: AccessibilityEvaluationRow): AccessibilityEvaluationResponse {
   try {
-    const stored = row.evaluationJson;
+    const stored = readStoredEvaluation<AccessibilityEvaluationCreate["evaluation"]>(row.evaluationJson, row.requestedUrl);
+    const storedMetadata = row.evaluationJson as { adapter: string; adapterVersion: string; rulesetTags: AccessibilityEvaluationCreate["rulesetTags"] };
     return accessibilityEvaluationResponseSchema.parse({
       id: row.id,
       source: row.source,
+      provenance: stored.provenance,
       schemaVersion: row.schemaVersion,
       evaluatorVersion: row.evaluatorVersion,
       scannerRunId: row.scannerRunId,
@@ -75,9 +79,9 @@ function toResponse(row: AccessibilityEvaluationRow): AccessibilityEvaluationRes
       scannedAt: row.scannedAt.toISOString(),
       engine: row.engine,
       engineVersion: row.engineVersion,
-      adapter: stored.adapter,
-      adapterVersion: stored.adapterVersion,
-      rulesetTags: stored.rulesetTags,
+      adapter: storedMetadata.adapter,
+      adapterVersion: storedMetadata.adapterVersion,
+      rulesetTags: storedMetadata.rulesetTags,
       evaluation: stored.evaluation,
       createdAt: row.createdAt.toISOString(),
     });
@@ -111,6 +115,7 @@ function comparableInput(response: AccessibilityEvaluationResponse): Accessibili
   return accessibilityEvaluationCreateSchema.parse({
     schemaVersion: response.schemaVersion,
     evaluatorVersion: response.evaluatorVersion,
+    provenance: response.provenance,
     scannerRunId: response.scannerRunId,
     requestedUrl: response.requestedUrl,
     finalUrl: response.finalUrl,
@@ -158,7 +163,10 @@ export class InMemoryAccessibilityEvaluationRepository implements AccessibilityE
   private readonly byComposite = new Map<string, string>();
 
   create(input: AccessibilityEvaluationCreate) {
-    const parsed = accessibilityEvaluationCreateSchema.parse(structuredClone(input));
+    const parsed = accessibilityEvaluationCreateSchema.parse({
+      ...structuredClone(input),
+      provenance: resolveControlledProvenance(input.provenance, input.requestedUrl),
+    });
     const key = compositeKey(parsed);
     const existingId = this.byComposite.get(key);
     if (existingId) {
@@ -198,7 +206,10 @@ export class PostgresAccessibilityEvaluationRepository implements AccessibilityE
   constructor(private readonly db: SiteProbeDatabase) {}
 
   async create(input: AccessibilityEvaluationCreate) {
-    const parsed = accessibilityEvaluationCreateSchema.parse(structuredClone(input));
+    const parsed = accessibilityEvaluationCreateSchema.parse({
+      ...structuredClone(input),
+      provenance: resolveControlledProvenance(input.provenance, input.requestedUrl),
+    });
     const id = randomUUID();
     try {
       const inserted = await this.db.insert(accessibilityEvaluations).values(rowFromInput(parsed, id, new Date())).onConflictDoNothing({

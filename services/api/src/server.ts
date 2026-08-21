@@ -23,6 +23,7 @@ const app = buildApp({
   qaEvaluationPublicReadEnabled: config.qaEvaluationPublicReadEnabled,
   accessibilityEvaluationRepository: new PostgresAccessibilityEvaluationRepository(connection.db),
   accessibilityEvaluationPublicReadEnabled: config.accessibilityEvaluationPublicReadEnabled,
+  realSiteSmokeTestEnabled: config.realSiteSmokeTestEnabled,
   seoEvaluationRepository: new PostgresSeoEvaluationRepository(connection.db),
 });
 

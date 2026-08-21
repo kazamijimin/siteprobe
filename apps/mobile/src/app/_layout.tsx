@@ -1,9 +1,10 @@
 import { Stack } from 'expo-router';
+import { ProductNavigation } from '@/components/ProductNavigation';
 
 export default function RootLayout() {
   return (
-    <Stack>
-      <Stack.Screen name="index" options={{ headerShown: false }} />
+    <Stack screenOptions={{ header: () => <ProductNavigation /> }}>
+      <Stack.Screen name="index" />
       <Stack.Screen name="scans/index" options={{ title: 'Scan History' }} />
       <Stack.Screen name="scans/[id]" options={{ title: 'Scan Result' }} />
       <Stack.Screen name="qa-evaluations/index" options={{ title: 'Controlled QA Evaluations' }} />

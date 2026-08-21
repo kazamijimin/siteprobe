@@ -8,6 +8,7 @@ import {
 } from "@siteprobe/contracts";
 import type { SiteProbeDatabase } from "../db/client.js";
 import { seoEvaluations, type SeoEvaluationRow } from "../db/schema.js";
+import { readStoredEvaluation, resolveControlledProvenance, storedEvaluation } from "../evaluations/provenance.js";
 
 export class SeoEvaluationPersistenceCorruptionError extends Error {
   readonly code = "SEO_EVALUATION_PERSISTENCE_CORRUPTION";
@@ -30,27 +31,28 @@ function normalizeInput(input: SeoEvaluationCreate): string {
 }
 function toResponse(row: SeoEvaluationRow): SeoEvaluationResponse {
   try {
+    const stored = readStoredEvaluation<SeoEvaluationCreate["evaluation"]>(row.evaluationJson, row.requestedUrl);
     return seoEvaluationResponseSchema.parse({
-      id: row.id, source: row.source, schemaVersion: row.schemaVersion, evaluatorVersion: row.evaluatorVersion,
+      id: row.id, source: row.source, provenance: stored.provenance, schemaVersion: row.schemaVersion, evaluatorVersion: row.evaluatorVersion,
       scannerRunId: row.scannerRunId, requestedUrl: row.requestedUrl, finalUrl: row.finalUrl,
-      scannedAt: row.scannedAt.toISOString(), evaluation: row.evaluationJson, createdAt: row.createdAt.toISOString(),
+      scannedAt: row.scannedAt.toISOString(), evaluation: stored.evaluation, createdAt: row.createdAt.toISOString(),
     });
   } catch (error) {
     throw new SeoEvaluationPersistenceCorruptionError("Stored SEO evaluation failed contract validation", { cause: error });
   }
 }
 function rowFromInput(input: SeoEvaluationCreate, id: string, createdAt: Date) {
-  return { id, scannerRunId: input.scannerRunId, source: "controlled-scanner" as const, schemaVersion: input.schemaVersion, evaluatorVersion: input.evaluatorVersion, requestedUrl: input.requestedUrl, finalUrl: input.finalUrl, scannedAt: new Date(input.scannedAt), evaluationJson: input.evaluation, createdAt };
+  return { id, scannerRunId: input.scannerRunId, source: "controlled-scanner" as const, schemaVersion: input.schemaVersion, evaluatorVersion: input.evaluatorVersion, requestedUrl: input.requestedUrl, finalUrl: input.finalUrl, scannedAt: new Date(input.scannedAt), evaluationJson: storedEvaluation(input.evaluation, input.provenance ?? "legacy-unknown"), createdAt };
 }
 function comparable(response: SeoEvaluationResponse): SeoEvaluationCreate {
-  return seoEvaluationCreateSchema.parse({ schemaVersion: response.schemaVersion, evaluatorVersion: response.evaluatorVersion, scannerRunId: response.scannerRunId, requestedUrl: response.requestedUrl, finalUrl: response.finalUrl, scannedAt: response.scannedAt, evaluation: response.evaluation });
+  return seoEvaluationCreateSchema.parse({ provenance: response.provenance, schemaVersion: response.schemaVersion, evaluatorVersion: response.evaluatorVersion, scannerRunId: response.scannerRunId, requestedUrl: response.requestedUrl, finalUrl: response.finalUrl, scannedAt: response.scannedAt, evaluation: response.evaluation });
 }
 
 export class InMemorySeoEvaluationRepository implements SeoEvaluationRepository {
   private readonly rows = new Map<string, SeoEvaluationRow>();
   private readonly byComposite = new Map<string, string>();
   create(input: SeoEvaluationCreate) {
-    const parsed = seoEvaluationCreateSchema.parse(structuredClone(input));
+    const parsed = seoEvaluationCreateSchema.parse({ ...structuredClone(input), provenance: resolveControlledProvenance(input.provenance, input.requestedUrl) });
     const key = `${parsed.scannerRunId}:${parsed.evaluatorVersion}`;
     const existingId = this.byComposite.get(key);
     if (existingId) {
@@ -71,7 +73,7 @@ export class InMemorySeoEvaluationRepository implements SeoEvaluationRepository 
 export class PostgresSeoEvaluationRepository implements SeoEvaluationRepository {
   constructor(private readonly db: SiteProbeDatabase) {}
   async create(input: SeoEvaluationCreate) {
-    const parsed = seoEvaluationCreateSchema.parse(structuredClone(input));
+    const parsed = seoEvaluationCreateSchema.parse({ ...structuredClone(input), provenance: resolveControlledProvenance(input.provenance, input.requestedUrl) });
     const id = randomUUID();
     try {
       const inserted = await this.db.insert(seoEvaluations).values(rowFromInput(parsed, id, new Date())).onConflictDoNothing({ target: [seoEvaluations.scannerRunId, seoEvaluations.evaluatorVersion] }).returning();
