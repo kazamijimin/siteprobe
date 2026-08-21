@@ -1,25 +1,41 @@
 import { randomUUID } from "node:crypto";
+import { inArray } from "drizzle-orm";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createDatabase, type DatabaseConnection } from "./client.js";
 import { scans } from "./schema.js";
 import { PostgresScanRepository } from "../repository.js";
+import { assertSafeTestDatabaseUrl } from "./test-database-guard.js";
 
 const databaseUrl = process.env.SITEPROBE_TEST_DATABASE_URL;
-const describeDatabase = databaseUrl ? describe : describe.skip;
+const safeDatabaseUrl = databaseUrl
+  ? (assertSafeTestDatabaseUrl(databaseUrl), databaseUrl)
+  : undefined;
+const describeDatabase = safeDatabaseUrl ? describe : describe.skip;
 
 describeDatabase("PostgreSQL scan persistence", () => {
-  let connection: DatabaseConnection;
+  let connection: DatabaseConnection | undefined;
   let repository: PostgresScanRepository;
+  const createdIds: string[] = [];
 
   beforeAll(async () => {
     connection = createDatabase(databaseUrl!);
-    await migrate(connection.db, { migrationsFolder: "drizzle" });
-    repository = new PostgresScanRepository(connection.db);
+    await migrate(connection!.db, { migrationsFolder: "drizzle" });
+    repository = new PostgresScanRepository(connection!.db);
   });
 
   afterAll(async () => {
-    await connection.pool.end();
+    if (connection && createdIds.length > 0) {
+      await connection.db.delete(scans).where(inArray(scans.id, createdIds));
+    }
+    await connection?.pool.end();
+  });
+
+  afterEach(async () => {
+    if (connection && createdIds.length > 0) {
+      await connection.db.delete(scans).where(inArray(scans.id, createdIds));
+      createdIds.length = 0;
+    }
   });
 
   it("persists a scan and retrieves it from a separate repository instance", async () => {
@@ -34,7 +50,8 @@ describeDatabase("PostgreSQL scan persistence", () => {
     };
 
     const created = await repository.create(scan, " HTTPS://Example.com#fragment ");
-    const secondRepository = new PostgresScanRepository(connection.db);
+    createdIds.push(scan.id);
+    const secondRepository = new PostgresScanRepository(connection!.db);
 
     await expect(secondRepository.findById(scan.id)).resolves.toEqual(created);
     expect(created.url).toBe("https://example.com/");
@@ -55,13 +72,13 @@ describeDatabase("PostgreSQL scan persistence", () => {
     };
 
     await expect(
-      connection.db.insert(scans).values({ ...base, overallScore: 101 }),
+      connection!.db.insert(scans).values({ ...base, overallScore: 101 }),
     ).rejects.toThrow();
     await expect(
-      connection.db.insert(scans).values({ ...base, id: randomUUID(), criticalCount: -1 }),
+      connection!.db.insert(scans).values({ ...base, id: randomUUID(), criticalCount: -1 }),
     ).rejects.toThrow();
     await expect(
-      connection.db.insert(scans).values({ ...base, id: randomUUID(), status: "unknown" as never }),
+      connection!.db.insert(scans).values({ ...base, id: randomUUID(), status: "unknown" as never }),
     ).rejects.toThrow();
   });
 
@@ -97,6 +114,7 @@ describeDatabase("PostgreSQL scan persistence", () => {
     ];
     for (const record of records) {
       await repository.create(record);
+      createdIds.push(record.id);
     }
 
     const firstPage = await repository.list({ limit: 2 });
@@ -145,8 +163,11 @@ describeDatabase("PostgreSQL scan persistence", () => {
       },
     ];
     await repository.create(records[0], "https://db-requested.example/back\\slash");
+    createdIds.push(records[0].id);
     await repository.create(records[1]);
+    createdIds.push(records[1].id);
     await repository.create(records[2]);
+    createdIds.push(records[2].id);
 
     await expect(repository.list({ limit: 10, query: "DB-REQUESTED.EXAMPLE" })).resolves.toMatchObject({
       items: [expect.objectContaining({ id: records[0].id })],
