@@ -88,6 +88,7 @@ describe("controlled QA evaluation contracts", () => {
       evaluation: create.evaluation,
       createdAt: create.scannedAt,
       relatedAccessibilityEvaluationId: null,
+      relatedSeoEvaluationId: null,
     };
 
     expect(controlledQaEvaluationPublicResponseSchema.parse(response)).toEqual(response);

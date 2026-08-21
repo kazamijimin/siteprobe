@@ -184,6 +184,7 @@ export const controlledQaEvaluationPublicResponseSchema = z.object({
   evaluation: qaEvaluationSchema,
   createdAt: z.string().datetime({ offset: true }),
   relatedAccessibilityEvaluationId: z.string().uuid().nullable(),
+  relatedSeoEvaluationId: z.string().uuid().nullable(),
 }).strict().superRefine(metadataConsistency);
 
 export const controlledQaEvaluationListItemSchema = z.object({

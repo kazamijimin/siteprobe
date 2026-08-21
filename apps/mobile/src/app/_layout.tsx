@@ -11,6 +11,8 @@ export default function RootLayout() {
       <Stack.Screen name="qa-evaluations/[id]" options={{ title: 'Controlled QA Evaluation' }} />
       <Stack.Screen name="accessibility-evaluations/index" options={{ title: 'Controlled Accessibility Evaluations' }} />
       <Stack.Screen name="accessibility-evaluations/[id]" options={{ title: 'Controlled Accessibility Evaluation' }} />
+      <Stack.Screen name="seo-evaluations/index" options={{ title: 'SEO Evaluations' }} />
+      <Stack.Screen name="seo-evaluations/[id]" options={{ title: 'SEO Evaluation' }} />
     </Stack>
   );
 }

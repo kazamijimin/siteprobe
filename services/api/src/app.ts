@@ -42,6 +42,7 @@ export type BuildAppOptions = {
   accessibilityEvaluationPublicReadEnabled?: boolean;
   realSiteSmokeTestEnabled?: boolean;
   seoEvaluationRepository?: SeoEvaluationRepository;
+  seoEvaluationPublicReadEnabled?: boolean;
 };
 
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
@@ -112,6 +113,8 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     accessibilityRepository: accessibilityEvaluationRepository,
     accessibilityPublicReadEnabled: options.accessibilityEvaluationPublicReadEnabled ?? false,
     realSiteSmokeTestEnabled: options.realSiteSmokeTestEnabled ?? false,
+    seoRepository: seoEvaluationRepository,
+    seoPublicReadEnabled: options.seoEvaluationPublicReadEnabled ?? false,
   }));
   app.register(accessibilityEvaluationRoutes({
     repository: accessibilityEvaluationRepository,
@@ -120,7 +123,18 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     qaRepository: qaEvaluationRepository,
     qaPublicReadEnabled: options.qaEvaluationPublicReadEnabled ?? false,
     realSiteSmokeTestEnabled: options.realSiteSmokeTestEnabled ?? false,
+    seoRepository: seoEvaluationRepository,
+    seoPublicReadEnabled: options.seoEvaluationPublicReadEnabled ?? false,
   }));
-  app.register(seoEvaluationRoutes({ repository: seoEvaluationRepository, token: options.qaEvaluationInternalToken, realSiteSmokeTestEnabled: options.realSiteSmokeTestEnabled ?? false }));
+  app.register(seoEvaluationRoutes({
+    repository: seoEvaluationRepository,
+    token: options.qaEvaluationInternalToken,
+    realSiteSmokeTestEnabled: options.realSiteSmokeTestEnabled ?? false,
+    publicReadEnabled: options.seoEvaluationPublicReadEnabled ?? false,
+    qaRepository: qaEvaluationRepository,
+    qaPublicReadEnabled: options.qaEvaluationPublicReadEnabled ?? false,
+    accessibilityRepository: accessibilityEvaluationRepository,
+    accessibilityPublicReadEnabled: options.accessibilityEvaluationPublicReadEnabled ?? false,
+  }));
   return app;
 }

@@ -170,6 +170,7 @@ describe("development-gated public QA evaluation route", () => {
       evaluation: created.evaluation,
       createdAt: created.createdAt,
       relatedAccessibilityEvaluationId: null,
+      relatedSeoEvaluationId: null,
     });
     expect(response.json()).not.toHaveProperty("scannerRunId");
     expect(response.json()).not.toHaveProperty("score");

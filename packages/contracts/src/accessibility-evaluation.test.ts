@@ -138,6 +138,7 @@ describe("accessibility evaluation contracts", () => {
       scannedAt: "2026-08-21T00:00:00.000Z",
       createdAt: "2026-08-21T00:01:00.000Z",
       relatedQaEvaluationId: null,
+      relatedSeoEvaluationId: null,
       engine: {
         engine: "axe-core",
         engineVersion: "4.13.0",

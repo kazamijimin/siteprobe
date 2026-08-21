@@ -6,6 +6,7 @@ const destinations = [
   { label: 'Scans', path: '/scans' },
   { label: 'QA', path: '/qa-evaluations' },
   { label: 'Accessibility', path: '/accessibility-evaluations' },
+  { label: 'SEO', path: '/seo-evaluations' },
 ] as const;
 
 export function ProductNavigation() {
@@ -24,7 +25,7 @@ export function ProductNavigation() {
               accessibilityRole="link"
               accessibilityState={{ selected: active }}
               key={destination.path}
-              onPress={() => router.replace(destination.path)}
+              onPress={() => router.replace(destination.path as never)}
               style={({ pressed }) => [styles.link, active && styles.activeLink, pressed && styles.pressed]}>
               <Text style={[styles.linkText, active && styles.activeLinkText]}>{destination.label}</Text>
             </Pressable>

@@ -2,7 +2,9 @@
 
 SiteProbe is a mobile-first website QA platform. The long-term product will submit website targets from an Expo application to a backend that runs isolated browser checks.
 
-## Current status: Product Phase P13
+## Current status: Product Phase P14
+
+- Product Phase P14 — Public SEO evaluation read experience
 
 - Product Phase P13 — Result trust, provenance, and scanner-policy attribution
 
@@ -90,6 +92,16 @@ reclassified from a UI URL. Scanner policy blocks (for example, a blocked
 third-party POST) are attributed as `SCANNER_POLICY_BLOCK` and do not become
 target failures or duplicate console errors. Genuine failed resources remain
 `TARGET_FAILURE`. The six controlled QA rules remain unchanged.
+
+Product Phase P14 adds a development-gated, read-only public SEO evaluation
+adapter at `/api/seo-evaluations` and `/api/seo-evaluations/:id`, plus the Expo
+`/seo-evaluations` index and detail routes. The API exposes explicit provenance,
+bounded cursor pagination, nine existing SEO findings, and only safe related QA
+and accessibility IDs when those domains are also enabled. It does not calculate
+a numeric SEO score, start scans, or change the synthetic `POST /api/scans`
+flow. Enable `SEO_EVALUATION_PUBLIC_READ_ENABLED=true` only for local UI
+inspection; it defaults to `false` and internal ingestion tokens remain
+server-side.
 
 Run the developer-only ReaDirect smoke workflow with:
 
@@ -410,6 +422,20 @@ already-loaded controlled page, persists core QA before SEO through authenticate
 internal routes, and creates no public SEO API or mobile UI. It stores nine
 bounded deterministic findings, never computes a score or grade, and preserves
 the zero-new-request/page/navigation invariant. Phase H remains deferred.
+
+To inspect persisted SEO results locally, enable the API read adapter in
+`services/api/.env` and open:
+
+```text
+http://localhost:8082/seo-evaluations
+http://localhost:8082/seo-evaluations/<evaluation-id>
+```
+
+The index supports provenance filters and cursor-based loading. Detail views
+show passed, warning, and not-applicable counts, all nine findings, bounded
+technical evidence, remediation guidance, and gate-aware QA/accessibility
+cross-links. Provenance is persisted with each row; it is never inferred from
+the target URL.
 
 ## Run the ReaDirect real-site smoke test
 

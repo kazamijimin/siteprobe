@@ -131,12 +131,61 @@ export const seoEvaluationCreateSchema = z.object({ provenance: controlledEvalua
 export const seoEvaluationResponseSchema = z.object({ id: z.string().uuid(), source: z.literal("controlled-scanner"), provenance: controlledEvaluationProvenanceSchema, ...metadataBase, createdAt: z.string().datetime({ offset: true }) }).strict().superRefine(serializedSizeGuard);
 export const seoEvaluationIdParamsSchema = z.object({ id: z.string().uuid() }).strict();
 
+export const seoEvaluationPublicResponseSchema = z.object({
+  id: z.string().uuid(),
+  source: z.literal("controlled-scanner"),
+  provenance: controlledEvaluationProvenanceSchema,
+  schemaVersion: seoSchemaVersionSchema,
+  evaluatorVersion: seoEvaluatorVersionSchema,
+  requestedUrl: z.string().min(1).max(2048),
+  finalUrl: z.string().max(2048).nullable(),
+  scannedAt: z.string().datetime({ offset: true }),
+  evaluation: seoEvaluationSchema,
+  createdAt: z.string().datetime({ offset: true }),
+  relatedQaEvaluationId: z.string().uuid().nullable(),
+  relatedAccessibilityEvaluationId: z.string().uuid().nullable(),
+}).strict().superRefine(serializedSizeGuard);
+
+export const seoEvaluationListItemSchema = z.object({
+  id: z.string().uuid(),
+  source: z.literal("controlled-scanner"),
+  provenance: controlledEvaluationProvenanceSchema,
+  evaluatorVersion: seoEvaluatorVersionSchema,
+  requestedUrl: z.string().min(1).max(2048),
+  scannedAt: z.string().datetime({ offset: true }),
+  createdAt: z.string().datetime({ offset: true }),
+  summary: seoEvaluationSummarySchema,
+}).strict();
+
+export const seoEvaluationListCursorPayloadSchema = z.object({
+  v: z.literal(1),
+  createdAt: z.string().datetime({ offset: true }),
+  id: z.string().uuid(),
+}).strict();
+
+export const seoEvaluationListCursorSchema = z.string().min(1).max(512).regex(/^[A-Za-z0-9_-]+$/, "Cursor must be a base64url value");
+export const listSeoEvaluationsQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  cursor: seoEvaluationListCursorSchema.optional(),
+}).strict();
+export const listSeoEvaluationsResponseSchema = z.object({
+  evaluations: z.array(seoEvaluationListItemSchema).max(50),
+  nextCursor: seoEvaluationListCursorSchema.nullable(),
+}).strict();
+
 export type SeoEvidence = z.infer<typeof seoEvidenceSchema>;
 export type SeoFinding = z.infer<typeof seoFindingSchema>;
+export type SeoFindingStatus = z.infer<typeof seoFindingStatusSchema>;
+export type SeoSeverity = z.infer<typeof seoSeveritySchema>;
 export type SeoEvaluationSummary = z.infer<typeof seoEvaluationSummarySchema>;
 export type SeoCompletedEvaluation = z.infer<typeof seoCompletedEvaluationSchema>;
 export type SeoNotApplicableEvaluation = z.infer<typeof seoNotApplicableEvaluationSchema>;
 export type SeoEvaluation = z.infer<typeof seoEvaluationSchema>;
 export type SeoEvaluationCreate = z.infer<typeof seoEvaluationCreateSchema>;
 export type SeoEvaluationResponse = z.infer<typeof seoEvaluationResponseSchema>;
+export type SeoEvaluationPublicResponse = z.infer<typeof seoEvaluationPublicResponseSchema>;
+export type SeoEvaluationListItem = z.infer<typeof seoEvaluationListItemSchema>;
+export type SeoEvaluationListCursorPayload = z.infer<typeof seoEvaluationListCursorPayloadSchema>;
+export type ListSeoEvaluationsQuery = z.infer<typeof listSeoEvaluationsQuerySchema>;
+export type ListSeoEvaluationsResponse = z.infer<typeof listSeoEvaluationsResponseSchema>;
 export type SeoRuleId = z.infer<typeof seoRuleIdSchema>;

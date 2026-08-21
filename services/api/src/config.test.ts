@@ -20,6 +20,7 @@ describe("API configuration", () => {
       qaEvaluationPublicReadEnabled: false,
       accessibilityEvaluationPublicReadEnabled: false,
       realSiteSmokeTestEnabled: false,
+      seoEvaluationPublicReadEnabled: false,
     });
   });
 
@@ -47,5 +48,12 @@ describe("API configuration", () => {
     expect(loadConfig({ DATABASE_URL: databaseUrl }).realSiteSmokeTestEnabled).toBe(false);
     expect(loadConfig({ DATABASE_URL: databaseUrl, REAL_SITE_SMOKE_TEST_ENABLED: "true" }).realSiteSmokeTestEnabled).toBe(true);
     expect(() => loadConfig({ DATABASE_URL: databaseUrl, REAL_SITE_SMOKE_TEST_ENABLED: "TRUE" })).toThrow();
+  });
+
+  it("defaults the SEO public evaluation read adapter off and accepts explicit booleans", () => {
+    const databaseUrl = "postgresql://siteprobe@127.0.0.1:5432/siteprobe";
+    expect(loadConfig({ DATABASE_URL: databaseUrl }).seoEvaluationPublicReadEnabled).toBe(false);
+    expect(loadConfig({ DATABASE_URL: databaseUrl, SEO_EVALUATION_PUBLIC_READ_ENABLED: "true" }).seoEvaluationPublicReadEnabled).toBe(true);
+    expect(() => loadConfig({ DATABASE_URL: databaseUrl, SEO_EVALUATION_PUBLIC_READ_ENABLED: "TRUE" })).toThrow();
   });
 });

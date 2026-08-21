@@ -26,6 +26,7 @@ const environmentSchema = z.object({
   QA_EVALUATION_PUBLIC_READ_ENABLED: z.enum(["true", "false"]).default("false").transform((value) => value === "true"),
   ACCESSIBILITY_EVALUATION_PUBLIC_READ_ENABLED: z.enum(["true", "false"]).default("false").transform((value) => value === "true"),
   REAL_SITE_SMOKE_TEST_ENABLED: z.enum(["true", "false"]).default("false").transform((value) => value === "true"),
+  SEO_EVALUATION_PUBLIC_READ_ENABLED: z.enum(["true", "false"]).default("false").transform((value) => value === "true"),
 });
 
 export type ApiConfig = {
@@ -38,6 +39,7 @@ export type ApiConfig = {
   qaEvaluationPublicReadEnabled: boolean;
   accessibilityEvaluationPublicReadEnabled: boolean;
   realSiteSmokeTestEnabled: boolean;
+  seoEvaluationPublicReadEnabled: boolean;
 };
 
 export function loadConfig(environment: NodeJS.ProcessEnv = process.env): ApiConfig {
@@ -52,5 +54,6 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): ApiCon
     qaEvaluationPublicReadEnabled: parsed.QA_EVALUATION_PUBLIC_READ_ENABLED,
     accessibilityEvaluationPublicReadEnabled: parsed.ACCESSIBILITY_EVALUATION_PUBLIC_READ_ENABLED,
     realSiteSmokeTestEnabled: parsed.REAL_SITE_SMOKE_TEST_ENABLED,
+    seoEvaluationPublicReadEnabled: parsed.SEO_EVALUATION_PUBLIC_READ_ENABLED,
   };
 }

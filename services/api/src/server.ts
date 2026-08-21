@@ -25,6 +25,7 @@ const app = buildApp({
   accessibilityEvaluationPublicReadEnabled: config.accessibilityEvaluationPublicReadEnabled,
   realSiteSmokeTestEnabled: config.realSiteSmokeTestEnabled,
   seoEvaluationRepository: new PostgresSeoEvaluationRepository(connection.db),
+  seoEvaluationPublicReadEnabled: config.seoEvaluationPublicReadEnabled,
 });
 
 let shuttingDown = false;

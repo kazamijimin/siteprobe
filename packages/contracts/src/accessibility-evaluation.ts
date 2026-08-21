@@ -227,6 +227,7 @@ export const accessibilityEvaluationPublicResponseSchema = z.object({
   engine: accessibilityEngineMetadataSchema,
   evaluation: publicAccessibilityEvaluationSchema,
   relatedQaEvaluationId: z.string().uuid().nullable(),
+  relatedSeoEvaluationId: z.string().uuid().nullable(),
 }).strict().superRefine(assertMetadataConsistency);
 
 const accessibilityEvaluationListEngineSchema = z.object({

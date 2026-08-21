@@ -94,6 +94,15 @@ export default function HomeScreen() {
           </Pressable>
 
           <Pressable
+            accessibilityLabel="View SEO Evaluations"
+            accessibilityRole="button"
+            onPress={() => router.push('./seo-evaluations')}
+            style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}>
+            <Text style={styles.secondaryButtonText}>View SEO Evaluations</Text>
+            <Text style={styles.secondaryButtonHint}>Controlled development</Text>
+          </Pressable>
+
+          <Pressable
             accessibilityLabel="View Scan History"
             accessibilityRole="button"
             onPress={() => router.push('/scans')}

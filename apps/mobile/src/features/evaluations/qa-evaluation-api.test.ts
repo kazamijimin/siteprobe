@@ -25,6 +25,7 @@ const evaluationFixture = {
   },
   createdAt: '2026-08-20T00:01:00.000Z',
   relatedAccessibilityEvaluationId: null,
+  relatedSeoEvaluationId: null,
 };
 
 const listFixture = {

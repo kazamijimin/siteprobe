@@ -254,6 +254,16 @@ export default function QaEvaluationDetailScreen() {
             </Pressable>
           ) : null}
 
+          {evaluation.relatedSeoEvaluationId ? (
+            <Pressable
+              accessibilityLabel="View SEO Evaluation"
+              accessibilityRole="button"
+              onPress={() => router.push({ pathname: '/seo-evaluations/[id]', params: { id: evaluation.relatedSeoEvaluationId! } })}
+              style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}>
+              <Text style={styles.secondaryButtonText}>View SEO Evaluation</Text>
+            </Pressable>
+          ) : null}
+
           <Pressable
             accessibilityLabel="Back to Home"
             accessibilityRole="button"
