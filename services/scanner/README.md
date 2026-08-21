@@ -60,3 +60,16 @@ future scanner deployment needs an isolated, non-root execution environment with
 explicit egress rules and per-request destination enforcement. The engine is for
 controlled local development and fixtures only; public arbitrary-URL scanning is
 not approved.
+
+## Product Phase P3 evaluator
+
+Product Phase P3 adds a deterministic in-process QA evaluator for `ScannerResult`
+objects produced by controlled fixture scans. It checks navigation completion,
+HTTP status, document title presence, console errors, page errors, and failed
+requests. Findings are bounded, ordered, and kept internal to this package.
+
+The evaluator is not exposed through the public API, mobile application, or
+private scanner worker response. It does not persist findings or calculate a
+score. Public scan summaries remain synthetic, arbitrary public URL scanning
+remains disabled, and Phase H remains deferred pending verified scanner
+isolation.

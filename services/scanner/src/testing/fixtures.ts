@@ -13,6 +13,7 @@ export const fixtureResolver = {
 
 const pages: Record<string, string> = {
   "/": '<!doctype html><title>Fixture Page</title><h1>Hello</h1>',
+  "/missing-title": '<!doctype html><h1>Missing title fixture</h1>',
   "/console-error": '<!doctype html><title>Console Fixture</title><script>console.error("fixture error")</script>',
   "/page-error": '<!doctype html><title>Page Error Fixture</title><script>setTimeout(() => { throw new Error("fixture crash") }, 0)</script>',
   "/failed-resource": '<!doctype html><title>Failed Resource Fixture</title><script src="http://fixture.invalid/fail.js"></script>',
@@ -24,7 +25,10 @@ const pages: Record<string, string> = {
   "/metadata-subresource": '<!doctype html><title>Metadata Resource Fixture</title><img src="http://169.254.169.254/metadata">',
   "/ipv6-subresource": '<!doctype html><title>IPv6 Resource Fixture</title><img src="http://[::1]/private">',
   "/request-limit": '<!doctype html><title>Request Limit Fixture</title><img src="http://fixture.invalid/a"><img src="http://fixture.invalid/b"><img src="http://fixture.invalid/c">',
+  "/status-404": '<!doctype html><title>Not Found Fixture</title><h1>404</h1>',
   "/status-500": '<!doctype html><title>Server Error Fixture</title><h1>500</h1>',
+  "/redirect-ok": '<!doctype html><title>Redirect Fixture</title><script>location.replace("http://fixture.invalid/redirect-target")</script>',
+  "/redirect-target": '<!doctype html><title>Redirect Target Fixture</title><h1>Redirected</h1>',
   "/download": '<!doctype html><title>Download Fixture</title><a download href="/file.bin" id="download">download</a><script>document.getElementById("download").click()</script>',
   "/sw": '<!doctype html><title>Service Worker Fixture</title><script>navigator.serviceWorker.register("/sw.js").catch(() => {})</script>',
 };
@@ -39,6 +43,14 @@ async function fulfillPage(route: Route, pathname: string): Promise<void> {
       status: 200,
       contentType: "text/html",
       body: '<script>location.replace("http://127.0.0.1/private")</script>',
+    });
+    return;
+  }
+  if (pathname === "/redirect-ok") {
+    await route.fulfill({
+      status: 200,
+      contentType: "text/html",
+      body: pages[pathname],
     });
     return;
   }
@@ -71,7 +83,7 @@ async function fulfillPage(route: Route, pathname: string): Promise<void> {
     return;
   }
   await route.fulfill({
-    status: pathname === "/status-500" ? 500 : 200,
+    status: pathname === "/status-500" ? 500 : pathname === "/status-404" ? 404 : 200,
     contentType: "text/html",
     body: pages[pathname] ?? "<!doctype html><title>Fixture Child</title>",
   });
