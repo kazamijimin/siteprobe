@@ -33,6 +33,7 @@ export type BuildAppOptions = {
   scannerClient?: ScannerClient;
   qaEvaluationRepository?: QaEvaluationRepository;
   qaEvaluationInternalToken?: string;
+  qaEvaluationPublicReadEnabled?: boolean;
 };
 
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
@@ -96,6 +97,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   app.register(qaEvaluationRoutes({
     repository: options.qaEvaluationRepository ?? new InMemoryQaEvaluationRepository(),
     token: options.qaEvaluationInternalToken,
+    publicReadEnabled: options.qaEvaluationPublicReadEnabled ?? false,
   }));
   return app;
 }

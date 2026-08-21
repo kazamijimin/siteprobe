@@ -2,7 +2,9 @@
 
 SiteProbe is a mobile-first website QA platform. The long-term product will submit website targets from an Expo application to a backend that runs isolated browser checks.
 
-## Current status: Product Phase P4
+## Current status: Product Phase P5
+
+- Product Phase P5 â€” Controlled QA evaluation detail experience
 
 - Phase A — Expo/Metro/Hermes foundation
 - Phase B — Shared contracts and fake Fastify API
@@ -29,6 +31,8 @@ Phase A established the Expo mobile foundation:
 The app contains a Home scan form, searchable persistent Scan History route, and validated Scan Result route.
 
 Phase B added the platform-neutral Zod contracts and a local-only Fastify fake API. Phase C connects the Expo client to that API: Home creates a scan, the server-created ID drives navigation, and the Result screen retrieves and validates the scan independently. Product Phase P1 adds persisted history with bounded cursor pagination and keeps the result experience explicitly synthetic. Product Phase P2 adds server-backed, case-insensitive literal search across persisted requested and normalized URLs while preserving cursor pagination. Product Phase P3 adds a deterministic in-process QA evaluator for `ScannerResult` objects produced by controlled fixture scans. Product Phase P4 adds shared versioned QA contracts and an independent PostgreSQL JSONB snapshot repository behind authenticated internal POST/GET routes. Neither phase exposes evaluations through public scans, mobile, or the scanner worker.
+
+Product Phase P5 adds a development-gated, read-only /api/qa-evaluations/:id adapter and the Expo /qa-evaluations/[id] detail screen. P5 displays already-stored controlled evaluation snapshots; viewing a result does not initiate scanning. The adapter is disabled by default, exposes a reduced projection without scannerRunId or scores, and the internal evaluation token remains server-side only.
 
 Phase D replaces the API's in-memory repository with PostgreSQL persistence through Drizzle ORM and versioned SQL migrations. Phase E adds the scanner safety boundary: URL policy, DNS/IP classification, redirect validation, passive request policy, and resource limits. Phase F adds a controlled Chromium engine that reuses those checks and returns internal observations. Phase G adds a loopback-only authenticated scanner worker, a fail-closed isolation gate, and an API-side client that is deliberately not used by the public route.
 
@@ -131,6 +135,32 @@ pnpm scanner:test
 pnpm scanner:install-browser
 pnpm check
 ```
+
+## View a controlled QA evaluation
+
+Product Phase P5 is a read-only inspection experience for evaluations that have
+already been produced by the controlled scanner/evaluator and stored through the
+authenticated internal route. It does not create evaluations or initiate a scan.
+
+Enable the server-side adapter only for controlled local development:
+
+~~~env
+QA_EVALUATION_PUBLIC_READ_ENABLED=true
+~~~
+
+Keep this variable out of Expo and never put QA_EVALUATION_INTERNAL_TOKEN in
+mobile configuration. After authenticated internal ingestion returns an
+evaluation ID, open the Expo web detail route:
+
+~~~text
+http://localhost:8082/qa-evaluations/<evaluation-id>
+~~~
+
+The screen shows controlled provenance, requested/final URLs,
+critical/warning/passed/not-applicable counts, six findings in evaluator order,
+bounded evidence, and technical timestamps. URLs and browser evidence are plain
+selectable text and are never opened by the app. The public /api/scans flow
+remains synthetic, and Phase H remains deferred pending verified isolation.
 
 ## Run the controlled scanner
 

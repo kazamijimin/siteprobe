@@ -6,6 +6,7 @@ export default function RootLayout() {
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="scans/index" options={{ title: 'Scan History' }} />
       <Stack.Screen name="scans/[id]" options={{ title: 'Scan Result' }} />
+      <Stack.Screen name="qa-evaluations/[id]" options={{ title: 'Controlled QA Evaluation' }} />
     </Stack>
   );
 }

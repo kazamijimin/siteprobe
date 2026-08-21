@@ -164,6 +164,18 @@ export const controlledQaEvaluationResponseSchema = z.object({
   createdAt: z.string().datetime({ offset: true }),
 }).strict().superRefine(metadataConsistency);
 
+export const controlledQaEvaluationPublicResponseSchema = z.object({
+  id: z.string().uuid(),
+  source: z.literal("controlled-scanner"),
+  schemaVersion: qaSchemaVersionSchema,
+  evaluatorVersion: qaEvaluatorVersionSchema,
+  requestedUrl: z.string().min(1).max(2048),
+  finalUrl: z.string().max(2048).nullable(),
+  scannedAt: z.string().datetime({ offset: true }),
+  evaluation: qaEvaluationSchema,
+  createdAt: z.string().datetime({ offset: true }),
+}).strict().superRefine(metadataConsistency);
+
 export const qaEvaluationIdParamsSchema = z.object({ id: z.string().uuid() }).strict();
 
 export const controlledQaEvaluationErrorEnvelopeSchema = z.object({
@@ -188,5 +200,6 @@ export type QaSchemaVersion = z.infer<typeof qaSchemaVersionSchema>;
 export type QaEvaluatorVersion = z.infer<typeof qaEvaluatorVersionSchema>;
 export type ControlledQaEvaluationCreate = z.infer<typeof controlledQaEvaluationCreateSchema>;
 export type ControlledQaEvaluationResponse = z.infer<typeof controlledQaEvaluationResponseSchema>;
+export type ControlledQaEvaluationPublicResponse = z.infer<typeof controlledQaEvaluationPublicResponseSchema>;
 export type QaEvaluationIdParams = z.infer<typeof qaEvaluationIdParamsSchema>;
 export type ControlledQaEvaluationErrorEnvelope = z.infer<typeof controlledQaEvaluationErrorEnvelopeSchema>;

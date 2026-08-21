@@ -2,8 +2,10 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import type { FastifyPluginAsync } from "fastify";
 import {
   controlledQaEvaluationCreateSchema,
+  controlledQaEvaluationPublicResponseSchema,
   qaEvaluationIdParamsSchema,
   type ControlledQaEvaluationCreate,
+  type ControlledQaEvaluationResponse,
 } from "@siteprobe/contracts";
 import {
   QaEvaluationConflictError,
@@ -14,6 +16,7 @@ import {
 type QaRouteOptions = {
   repository: QaEvaluationRepository;
   token: string | undefined;
+  publicReadEnabled: boolean;
 };
 
 function errorEnvelope(code: string, message: string, requestId: string, details?: Array<{ path: string; message: string }>) {
@@ -38,6 +41,24 @@ function authorize(request: { headers: { authorization?: string }; id: string },
     return false;
   }
   return true;
+}
+
+function projectPublicEvaluation(evaluation: ControlledQaEvaluationResponse) {
+  const projected = controlledQaEvaluationPublicResponseSchema.safeParse({
+    id: evaluation.id,
+    source: evaluation.source,
+    schemaVersion: evaluation.schemaVersion,
+    evaluatorVersion: evaluation.evaluatorVersion,
+    requestedUrl: evaluation.requestedUrl,
+    finalUrl: evaluation.finalUrl,
+    scannedAt: evaluation.scannedAt,
+    evaluation: evaluation.evaluation,
+    createdAt: evaluation.createdAt,
+  });
+  if (!projected.success) {
+    throw new QaEvaluationPersistenceCorruptionError("Stored QA evaluation failed public contract validation", { cause: projected.error });
+  }
+  return projected.data;
 }
 
 export const qaEvaluationRoutes = (options: QaRouteOptions): FastifyPluginAsync => async (app) => {
@@ -75,5 +96,23 @@ export const qaEvaluationRoutes = (options: QaRouteOptions): FastifyPluginAsync 
     const evaluation = await options.repository.findById(params.data.id);
     if (!evaluation) return reply.code(404).send(errorEnvelope("NOT_FOUND", "QA evaluation not found", request.id));
     return reply.code(200).send(evaluation);
+  });
+
+  app.get("/api/qa-evaluations/:id", async (request, reply) => {
+    reply.header("Cache-Control", "no-store");
+    if (!options.publicReadEnabled) {
+      return reply.code(404).send(errorEnvelope("NOT_FOUND", "QA evaluation not found", request.id));
+    }
+
+    const params = qaEvaluationIdParamsSchema.safeParse(request.params);
+    if (!params.success) {
+      return reply.code(400).send(errorEnvelope("VALIDATION_ERROR", "Request validation failed", request.id, [
+        { path: "id", message: "id must be a valid UUID" },
+      ]));
+    }
+
+    const evaluation = await options.repository.findById(params.data.id);
+    if (!evaluation) return reply.code(404).send(errorEnvelope("NOT_FOUND", "QA evaluation not found", request.id));
+    return reply.code(200).send(projectPublicEvaluation(evaluation));
   });
 };

@@ -23,6 +23,7 @@ const environmentSchema = z.object({
     .default("http://127.0.0.1:3100"),
   SCANNER_INTERNAL_TOKEN: z.string().trim().optional(),
   QA_EVALUATION_INTERNAL_TOKEN: z.string().trim().optional(),
+  QA_EVALUATION_PUBLIC_READ_ENABLED: z.enum(["true", "false"]).default("false").transform((value) => value === "true"),
 });
 
 export type ApiConfig = {
@@ -32,6 +33,7 @@ export type ApiConfig = {
   scannerUrl: string;
   scannerInternalToken: string | undefined;
   qaEvaluationInternalToken: string | undefined;
+  qaEvaluationPublicReadEnabled: boolean;
 };
 
 export function loadConfig(environment: NodeJS.ProcessEnv = process.env): ApiConfig {
@@ -43,5 +45,6 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): ApiCon
     scannerUrl: parsed.SCANNER_URL,
     scannerInternalToken: parsed.SCANNER_INTERNAL_TOKEN || undefined,
     qaEvaluationInternalToken: parsed.QA_EVALUATION_INTERNAL_TOKEN || undefined,
+    qaEvaluationPublicReadEnabled: parsed.QA_EVALUATION_PUBLIC_READ_ENABLED,
   };
 }

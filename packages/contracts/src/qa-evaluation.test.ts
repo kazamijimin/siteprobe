@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   controlledQaEvaluationCreateSchema,
+  controlledQaEvaluationPublicResponseSchema,
   controlledQaEvaluationResponseSchema,
   qaEvaluationIdParamsSchema,
   qaEvaluationSchema,
@@ -66,5 +67,44 @@ describe("controlled QA evaluation contracts", () => {
   it("validates a response envelope without score fields", () => {
     const response = { id: create.scannerRunId, source: "controlled-scanner", ...create, createdAt: create.scannedAt };
     expect(controlledQaEvaluationResponseSchema.parse(response)).not.toHaveProperty("score");
+  });
+
+  it("validates the strict public projection without internal scanner metadata", () => {
+    const response = {
+      id: create.scannerRunId,
+      source: "controlled-scanner",
+      schemaVersion: create.schemaVersion,
+      evaluatorVersion: create.evaluatorVersion,
+      requestedUrl: create.requestedUrl,
+      finalUrl: create.finalUrl,
+      scannedAt: create.scannedAt,
+      evaluation: create.evaluation,
+      createdAt: create.scannedAt,
+    };
+
+    expect(controlledQaEvaluationPublicResponseSchema.parse(response)).toEqual(response);
+    expect(() => controlledQaEvaluationPublicResponseSchema.parse({ ...response, scannerRunId: create.scannerRunId })).toThrow();
+    expect(() => controlledQaEvaluationPublicResponseSchema.parse({ ...response, score: 87 })).toThrow();
+    expect(() => controlledQaEvaluationPublicResponseSchema.parse({ ...response, evaluation: { ...response.evaluation, findings: [...response.evaluation.findings].reverse() } })).toThrow();
+    expect(() => controlledQaEvaluationPublicResponseSchema.parse({ ...response, schemaVersion: 2 })).toThrow();
+    expect(() => controlledQaEvaluationPublicResponseSchema.parse({ ...response, evaluation: { ...response.evaluation, summary: { critical: 0, warnings: 0, passed: 5, notApplicable: 0 } } })).toThrow();
+    expect(controlledQaEvaluationPublicResponseSchema.parse({
+      ...response,
+      evaluation: {
+        ...response.evaluation,
+        findings: response.evaluation.findings.map((finding, index) => index === 3
+          ? { ...finding, evidence: { kind: 'messages', recordedCount: 3, samples: ['one', 'two', 'three'], samplesTruncated: true } }
+          : finding),
+      },
+    }).evaluation.findings[3].evidence).toMatchObject({ recordedCount: 3, samplesTruncated: true });
+    expect(() => controlledQaEvaluationPublicResponseSchema.parse({
+      ...response,
+      evaluation: {
+        ...response.evaluation,
+        findings: response.evaluation.findings.map((finding, index) => index === 3
+          ? { ...finding, evidence: { kind: 'messages', recordedCount: 4, samples: ['one', 'two', 'three', 'four'], samplesTruncated: true } }
+          : finding),
+      },
+    })).toThrow();
   });
 });

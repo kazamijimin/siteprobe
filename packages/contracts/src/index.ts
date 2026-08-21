@@ -43,6 +43,7 @@ export {
   QA_SCHEMA_VERSION,
   controlledQaEvaluationCreateSchema,
   controlledQaEvaluationErrorEnvelopeSchema,
+  controlledQaEvaluationPublicResponseSchema,
   controlledQaEvaluationResponseSchema,
   qaCategorySchema,
   qaEvaluationIdParamsSchema,
@@ -60,6 +61,7 @@ export {
 export type {
   ControlledQaEvaluationCreate,
   ControlledQaEvaluationErrorEnvelope,
+  ControlledQaEvaluationPublicResponse,
   ControlledQaEvaluationResponse,
   QaCategory,
   QaEvaluation,
