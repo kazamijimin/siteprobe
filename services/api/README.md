@@ -97,4 +97,20 @@ enabled, it returns compact controlled-scanner summaries ordered by
 The list excludes scanner run IDs, final URLs, findings, evidence, and scores,
 and uses `Cache-Control: no-store`. Listing performs repository reads only; it
 never invokes the evaluator, scanner, browser, DNS, target network, or a
-database write. Fixture generation and ingestion remain deferred to P7.
+database write.
+
+Product Phase P7 adds the developer-only `pnpm controlled:fixture <id>`
+workflow. It accepts only the scanner-owned fixture IDs `healthy`,
+`missing-title`, `status-404`, `redirect-ok`, `navigation-timeout`,
+`console-error`, and `failed-resource`. The separate tool runs the controlled
+scanner and evaluator, validates the complete version-1 ingestion payload, and
+reuses the authenticated `POST /internal/qa-evaluations` route. It does not
+write PostgreSQL directly, does not require `QA_EVALUATION_PUBLIC_READ_ENABLED`
+for ingestion, and does not change `POST /api/scans`.
+
+Configure the tool with `SITEPROBE_API_URL` and
+`QA_EVALUATION_INTERNAL_TOKEN` only. The API origin is restricted to loopback
+HTTP and authenticated requests refuse redirects. The scanner receives no API
+token or database credentials. P7 uses in-process `fixture.invalid` route
+fulfillment and does not use the private scanner worker. Phase H remains
+deferred pending verified isolation.

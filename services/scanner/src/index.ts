@@ -63,3 +63,12 @@ export {
   scannerRunFailureCodes,
   type ScannerRunFailureCode,
 } from "./errors.js";
+export {
+  controlledFixtureIdSchema,
+  getControlledFixtureDefinition,
+  listControlledFixtureIds,
+  runControlledFixture,
+  type ControlledFixtureDefinition,
+  type ControlledFixtureId,
+} from "./controlled-fixtures/index.js";
+export { evaluateScannerResult } from "./evaluation/evaluate-scanner-result.js";

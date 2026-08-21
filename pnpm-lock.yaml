@@ -133,6 +133,9 @@ importers:
         specifier: ^4.0.0
         version: 4.4.3
     devDependencies:
+      '@siteprobe/controlled-evaluations':
+        specifier: workspace:*
+        version: link:../../tools/controlled-evaluations
       '@types/node':
         specifier: ^24.0.0
         version: 24.13.3
@@ -166,6 +169,28 @@ importers:
       zod:
         specifier: ^4.0.0
         version: 4.4.3
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.13.3
+      tsx:
+        specifier: ^4.0.0
+        version: 4.23.12
+      typescript:
+        specifier: ~6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/node@24.13.3)(lightningcss@1.33.0)(supports-color@8.1.1)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0)
+
+  tools/controlled-evaluations:
+    dependencies:
+      '@siteprobe/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@siteprobe/scanner':
+        specifier: workspace:*
+        version: link:../../services/scanner
     devDependencies:
       '@types/node':
         specifier: ^24.0.0
