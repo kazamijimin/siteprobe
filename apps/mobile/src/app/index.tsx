@@ -109,6 +109,15 @@ export default function HomeScreen() {
             <Text style={styles.secondaryButtonText}>View Controlled QA Evaluations</Text>
             <Text style={styles.secondaryButtonHint}>Controlled development</Text>
           </Pressable>
+
+          <Pressable
+            accessibilityLabel="View Controlled Accessibility Evaluations"
+            accessibilityRole="button"
+            onPress={() => router.push('./accessibility-evaluations')}
+            style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}>
+            <Text style={styles.secondaryButtonText}>View Controlled Accessibility Evaluations</Text>
+            <Text style={styles.secondaryButtonHint}>Controlled development</Text>
+          </Pressable>
         </View>
       </View>
     </View>

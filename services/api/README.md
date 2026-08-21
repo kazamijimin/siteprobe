@@ -148,3 +148,23 @@ database-write operation and exposes no `scannerRunId`, raw axe fields, HTML,
 help URLs, score, or compliance claim. Viewing an accessibility evaluation does
 not run axe or start a scanner. Automated accessibility checks are not
 equivalent to full WCAG conformance testing.
+
+## Product Phase P10 accessibility evaluation index
+
+P10 adds the same development-gated, read-only flag to the compact index:
+
+```text
+GET /api/accessibility-evaluations
+GET /api/accessibility-evaluations?limit=20&cursor=<opaque-cursor>
+```
+
+The endpoint returns persisted P8 accessibility summaries in `created_at DESC,
+id DESC` order using a separate versioned base64url keyset cursor. It rejects
+unknown query fields, supports limits from 1 through 50 (default 20), and
+returns `Cache-Control: no-store`. The route is gated before query parsing and
+repository access, returns `404` when disabled, and never runs axe, launches a
+scanner, requests a target URL, or writes to PostgreSQL. Navigation failures
+remain explicitly `notApplicable` rather than appearing as zero violations.
+The index is separate from synthetic scan history. Automated accessibility
+checks are not equivalent to full WCAG conformance testing. Phase H remains
+deferred pending verified isolation.

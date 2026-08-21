@@ -76,6 +76,7 @@ describe("development-gated public accessibility evaluation route", () => {
       create: vi.fn(source.create.bind(source)),
       findById: vi.fn(source.findById.bind(source)),
       findByScannerRun: vi.fn(source.findByScannerRun.bind(source)),
+      list: vi.fn(source.list.bind(source)),
     };
     return { created, repository };
   }
@@ -91,6 +92,67 @@ describe("development-gated public accessibility evaluation route", () => {
     }
     expect(repository.findById).not.toHaveBeenCalled();
     expect(repository.create).not.toHaveBeenCalled();
+  });
+
+  it("gates the index before query parsing and repository access", async () => {
+    const { repository } = repositoryWithBody();
+    for (const enabled of [undefined, false]) {
+      const app = buildApp({ logger: false, accessibilityEvaluationRepository: repository, accessibilityEvaluationPublicReadEnabled: enabled });
+      const response = await app.inject({ method: "GET", url: "/api/accessibility-evaluations?unknown=value" });
+      expect(response.statusCode).toBe(404);
+      expect(response.headers["cache-control"]).toBe("no-store");
+      await app.close();
+    }
+    expect(repository.list).not.toHaveBeenCalled();
+  });
+
+  it("lists compact pages with bounded validation and a next cursor", async () => {
+    const source = new InMemoryAccessibilityEvaluationRepository();
+    const first = source.create(body).evaluation;
+    const second = source.create({ ...body, scannerRunId: "6d41977d-ffb9-4388-af0a-0f74c8ee64ab", requestedUrl: "http://fixture.invalid/accessibility-mixed", finalUrl: "http://fixture.invalid/accessibility-mixed" }).evaluation;
+    const repository: AccessibilityEvaluationRepository = {
+      create: vi.fn(source.create.bind(source)),
+      findById: vi.fn(source.findById.bind(source)),
+      findByScannerRun: vi.fn(source.findByScannerRun.bind(source)),
+      list: vi.fn(source.list.bind(source)),
+    };
+    const app = buildApp({ logger: false, accessibilityEvaluationRepository: repository, accessibilityEvaluationPublicReadEnabled: true });
+    const invalidLimit = await app.inject({ method: "GET", url: "/api/accessibility-evaluations?limit=0" });
+    expect(invalidLimit.statusCode).toBe(400);
+    const unknown = await app.inject({ method: "GET", url: "/api/accessibility-evaluations?search=fixture" });
+    expect(unknown.statusCode).toBe(400);
+    const page = await app.inject({ method: "GET", url: "/api/accessibility-evaluations?limit=1" });
+    expect(page.statusCode).toBe(200);
+    expect(page.headers["cache-control"]).toBe("no-store");
+    expect(page.json().evaluations).toHaveLength(1);
+    expect(page.json().nextCursor).toEqual(expect.any(String));
+    expect(page.json().evaluations[0]).not.toHaveProperty("scannerRunId");
+    expect(page.json().evaluations[0]).not.toHaveProperty("finalUrl");
+    expect(page.json().evaluations[0]).not.toHaveProperty("violations");
+    expect(page.json().evaluations[0]).not.toHaveProperty("needsReview");
+    expect(page.json().evaluations[0]).not.toHaveProperty("score");
+    const next = await app.inject({ method: "GET", url: `/api/accessibility-evaluations?limit=1&cursor=${page.json().nextCursor}` });
+    expect(next.statusCode).toBe(200);
+    expect(next.json().evaluations).toHaveLength(1);
+    expect(next.json().evaluations[0].id).not.toBe(page.json().evaluations[0].id);
+    expect(next.json().evaluations[0].id).toBe(first.id === page.json().evaluations[0].id ? second.id : first.id);
+    expect(repository.list).toHaveBeenCalledTimes(2);
+    await app.close();
+  });
+
+  it("returns an internal error for corrupt list persistence", async () => {
+    const { repository } = repositoryWithBody();
+    const corruptRepository: AccessibilityEvaluationRepository = {
+      create: repository.create,
+      findById: repository.findById,
+      findByScannerRun: repository.findByScannerRun,
+      list: () => { throw new AccessibilityEvaluationPersistenceCorruptionError("corrupt"); },
+    };
+    const app = buildApp({ logger: false, accessibilityEvaluationRepository: corruptRepository, accessibilityEvaluationPublicReadEnabled: true });
+    const response = await app.inject({ method: "GET", url: "/api/accessibility-evaluations" });
+    expect(response.statusCode).toBe(500);
+    expect(response.json().error.code).toBe("INTERNAL_ERROR");
+    await app.close();
   });
 
   it("returns a strict presentation projection with one repository read", async () => {
@@ -127,6 +189,7 @@ describe("development-gated public accessibility evaluation route", () => {
       create: repository.create,
       findById: () => { throw new AccessibilityEvaluationPersistenceCorruptionError("corrupt"); },
       findByScannerRun: repository.findByScannerRun,
+      list: repository.list,
     };
     const corruptApp = buildApp({ logger: false, accessibilityEvaluationRepository: corruptRepository, accessibilityEvaluationPublicReadEnabled: true });
     const corrupt = await corruptApp.inject({ method: "GET", url: `/api/accessibility-evaluations/${created.id}` });

@@ -7,6 +7,7 @@ This Expo SDK 57 application is the SiteProbe mobile client.
 - /qa-evaluations - development-gated controlled QA evaluation index
 - /qa-evaluations/[id] - development-gated controlled QA evaluation detail
 - /accessibility-evaluations/[id] - development-gated controlled accessibility evaluation detail
+- /accessibility-evaluations - development-gated controlled accessibility evaluation index
 
 - `/` — URL entry and fake scan creation
 - `/scans` — persisted synthetic scan history
@@ -33,6 +34,13 @@ ID produced by the controlled P8 workflow. The screen displays normalized
 violations, needs-review checks, impact/node summaries, truncation notices,
 engine metadata, targets, and timestamps as plain React Native text. It never
 runs axe, starts a scanner, requests the target URL, or opens help URLs.
+
+Product Phase P10 adds the read-only Controlled Accessibility Evaluations index.
+It loads persisted P8 summaries with explicit `Load More` keyset pagination,
+keeps navigation failures visibly distinct from completed checks, and links to
+the existing detail screen. The index never runs axe, starts a scanner, creates
+an evaluation, requests a target URL, or writes to PostgreSQL. It is separate
+from synthetic scan history and remains development-gated by the API flag.
 
 Automated accessibility checks are not equivalent to full WCAG conformance
 testing. Accessibility violations indicate automated findings; they do not
@@ -78,3 +86,15 @@ To browse persisted controlled evaluations during local development:
 The index is read-only and lists summaries only. Controlled fixture generation
 and authenticated ingestion remain part of a later phase; known evaluations
 must still be created through the existing internal workflow.
+
+To browse controlled accessibility evaluations during local development:
+
+1. Set `ACCESSIBILITY_EVALUATION_PUBLIC_READ_ENABLED=true` in `services/api/.env` only.
+2. Open `http://localhost:8082/accessibility-evaluations` in Expo web, or choose `View Controlled Accessibility Evaluations` from Home.
+3. Use `Load More` to request the next persisted page, then select a card to open the P9 detail screen.
+
+The screen shows controlled-fixture provenance and the WCAG testing disclaimer.
+It never exposes selectors, raw axe data, help URLs, score, grade, or a
+compliance percentage. Automated accessibility checks are not equivalent to
+full WCAG conformance testing. Phase H remains deferred pending verified
+isolation.

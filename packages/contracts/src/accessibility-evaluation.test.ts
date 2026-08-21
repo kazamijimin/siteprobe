@@ -5,6 +5,8 @@ import {
   AXE_ADAPTER_VERSION,
   AXE_ENGINE_VERSION,
   accessibilityEvaluationCreateSchema,
+  accessibilityEvaluationListItemSchema,
+  listAccessibilityEvaluationsQuerySchema,
   accessibilityEvaluationPublicResponseSchema,
   accessibilityEvaluationSchema,
   accessibilityFailureCodeSchema,
@@ -153,5 +155,39 @@ describe("accessibility evaluation contracts", () => {
         violations: [{ ruleId: "image-alt", impact: "critical", help: "Images need text", affectedNodeCount: 1, affectedNodeCountCapped: false, samples: [{ target: ["img"], failureSummary: "<img>" }], samplesTruncated: false }],
       },
     })).toThrow();
+  });
+
+  it("accepts compact completed and navigation-failure list projections only", () => {
+    const base = {
+      id: "6d41977d-ffb9-4388-af0a-0f74c8ee64ab",
+      source: "controlled-scanner" as const,
+      evaluatorVersion: 1 as const,
+      requestedUrl: "http://fixture.invalid/accessibility-clean",
+      scannedAt: "2026-08-21T00:00:00.000Z",
+      createdAt: "2026-08-21T00:01:00.000Z",
+      engine: { engine: "axe-core" as const, engineVersion: "4.13.0" as const },
+    };
+    const completed = accessibilityEvaluationListItemSchema.parse({
+      ...base,
+      status: "completed",
+      summary: emptySummary,
+    });
+    expect(completed).toMatchObject({ status: "completed", summary: emptySummary });
+    expect(() => accessibilityEvaluationListItemSchema.parse({ ...completed, scannerRunId: base.id })).toThrow();
+    const failed = accessibilityEvaluationListItemSchema.parse({
+      ...base,
+      status: "notApplicable",
+      reason: "navigationFailed",
+    });
+    expect(failed).toMatchObject({ status: "notApplicable", reason: "navigationFailed" });
+    expect(() => accessibilityEvaluationListItemSchema.parse({ ...failed, summary: emptySummary })).toThrow();
+  });
+
+  it("keeps list query limits bounded and rejects unknown fields", () => {
+    expect(listAccessibilityEvaluationsQuerySchema.parse({})).toEqual({ limit: 20 });
+    expect(listAccessibilityEvaluationsQuerySchema.parse({ limit: "50" })).toEqual({ limit: 50 });
+    expect(() => listAccessibilityEvaluationsQuerySchema.parse({ limit: 0 })).toThrow();
+    expect(() => listAccessibilityEvaluationsQuerySchema.parse({ limit: 51 })).toThrow();
+    expect(() => listAccessibilityEvaluationsQuerySchema.parse({ search: "fixture" })).toThrow();
   });
 });

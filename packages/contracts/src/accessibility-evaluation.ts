@@ -222,6 +222,56 @@ export const accessibilityEvaluationPublicResponseSchema = z.object({
   evaluation: publicAccessibilityEvaluationSchema,
 }).strict().superRefine(assertMetadataConsistency);
 
+const accessibilityEvaluationListEngineSchema = z.object({
+  engine: z.literal("axe-core"),
+  engineVersion: z.literal(AXE_ENGINE_VERSION),
+}).strict();
+
+const accessibilityEvaluationListBase = {
+  id: z.string().uuid(),
+  source: z.literal("controlled-scanner"),
+  evaluatorVersion: accessibilityEvaluatorVersionSchema,
+  requestedUrl: z.string().min(1).max(2048),
+  scannedAt: z.string().datetime({ offset: true }),
+  createdAt: z.string().datetime({ offset: true }),
+  engine: accessibilityEvaluationListEngineSchema,
+};
+
+export const accessibilityEvaluationListItemSchema = z.discriminatedUnion("status", [
+  z.object({
+    ...accessibilityEvaluationListBase,
+    status: z.literal("completed"),
+    summary: accessibilitySummarySchema,
+  }).strict(),
+  z.object({
+    ...accessibilityEvaluationListBase,
+    status: z.literal("notApplicable"),
+    reason: accessibilityNotApplicableReasonSchema,
+  }).strict(),
+]);
+
+export const accessibilityEvaluationListCursorPayloadSchema = z.object({
+  v: z.literal(1),
+  createdAt: z.string().datetime({ offset: true }),
+  id: z.string().uuid(),
+}).strict();
+
+export const accessibilityEvaluationListCursorSchema = z
+  .string()
+  .min(1)
+  .max(512)
+  .regex(/^[A-Za-z0-9_-]+$/, "Cursor must be a base64url value");
+
+export const listAccessibilityEvaluationsQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  cursor: accessibilityEvaluationListCursorSchema.optional(),
+}).strict();
+
+export const listAccessibilityEvaluationsResponseSchema = z.object({
+  evaluations: z.array(accessibilityEvaluationListItemSchema).max(50),
+  nextCursor: accessibilityEvaluationListCursorSchema.nullable(),
+}).strict();
+
 export type AccessibilityImpact = z.infer<typeof accessibilityImpactSchema>;
 export type AccessibilitySample = z.infer<typeof accessibilitySampleSchema>;
 export type AccessibilityRuleResult = z.infer<typeof accessibilityRuleResultSchema>;
@@ -234,4 +284,8 @@ export type AccessibilityEvaluationCreate = z.infer<typeof accessibilityEvaluati
 export type AccessibilityEvaluationResponse = z.infer<typeof accessibilityEvaluationResponseSchema>;
 export type AccessibilityEvaluationPublicResponse = z.infer<typeof accessibilityEvaluationPublicResponseSchema>;
 export type AccessibilityEvaluationIdParams = z.infer<typeof accessibilityEvaluationIdParamsSchema>;
+export type AccessibilityEvaluationListItem = z.infer<typeof accessibilityEvaluationListItemSchema>;
+export type AccessibilityEvaluationListCursorPayload = z.infer<typeof accessibilityEvaluationListCursorPayloadSchema>;
+export type ListAccessibilityEvaluationsQuery = z.infer<typeof listAccessibilityEvaluationsQuerySchema>;
+export type ListAccessibilityEvaluationsResponse = z.infer<typeof listAccessibilityEvaluationsResponseSchema>;
 export type AccessibilityFailureCode = z.infer<typeof accessibilityFailureCodeSchema>;

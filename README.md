@@ -2,7 +2,9 @@
 
 SiteProbe is a mobile-first website QA platform. The long-term product will submit website targets from an Expo application to a backend that runs isolated browser checks.
 
-## Current status: Product Phase P9
+## Current status: Product Phase P10
+
+- Product Phase P10 — Controlled accessibility evaluation index
 
 - Product Phase P8 — Controlled accessibility evaluation with axe-core
 - Product Phase P9 — Controlled accessibility evaluation detail experience
@@ -60,6 +62,15 @@ opens help URLs. `ACCESSIBILITY_EVALUATION_PUBLIC_READ_ENABLED` defaults to
 `false` and is server-side only. Automated accessibility checks are not
 equivalent to full WCAG conformance testing and do not establish that a page is
 WCAG compliant, certified, or fully accessible.
+
+Product Phase P10 adds the development-gated, read-only accessibility
+evaluation index at `/api/accessibility-evaluations` and
+`/accessibility-evaluations`. It lists only persisted P8 snapshots with
+bounded opaque-cursor pagination and compact summaries. Viewing the index
+never runs axe, launches Playwright, starts a scanner, creates an evaluation,
+requests a target URL, or writes to PostgreSQL. It remains separate from
+synthetic public scan history. Phase H remains deferred pending verified
+isolation.
 
 Phase D replaces the API's in-memory repository with PostgreSQL persistence through Drizzle ORM and versioned SQL migrations. Phase E adds the scanner safety boundary: URL policy, DNS/IP classification, redirect validation, passive request policy, and resource limits. Phase F adds a controlled Chromium engine that reuses those checks and returns internal observations. Phase G adds a loopback-only authenticated scanner worker, a fail-closed isolation gate, and an API-side client that is deliberately not used by the public route.
 

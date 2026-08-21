@@ -1,9 +1,24 @@
 import type {
   AccessibilityEvaluation,
+  AccessibilityEvaluationListItem,
   AccessibilityImpact,
   AccessibilityRuleResult,
   AccessibilitySummary,
 } from '@siteprobe/contracts';
+
+export function formatAccessibilityListSource(item: Pick<AccessibilityEvaluationListItem, 'engine'>): string {
+  return `Automated accessibility check · ${item.engine.engine} ${item.engine.engineVersion}`;
+}
+
+export function formatAccessibilityListSummary(item: AccessibilityEvaluationListItem): string {
+  if (item.status === 'notApplicable') return 'Not analyzed — navigation failed';
+  return [
+    `Violation rules: ${item.summary.violationRules}`,
+    `Affected nodes: ${item.summary.violationNodes}`,
+    `Critical ${item.summary.critical} · Serious ${item.summary.serious} · Moderate ${item.summary.moderate} · Minor ${item.summary.minor}`,
+    `Needs review: ${item.summary.needsReviewRules}`,
+  ].join('\n');
+}
 
 export function formatAccessibilityTimestamp(value: string): string {
   return new Date(value).toLocaleString(undefined, {

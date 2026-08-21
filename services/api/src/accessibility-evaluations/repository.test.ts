@@ -73,4 +73,20 @@ describe("in-memory accessibility evaluation repository", () => {
     const second = await repository.create(input({ engineVersion: "4.13.0", scannerRunId: "6d41977d-ffb9-4388-af0a-0f74c8ee64ab" }));
     expect(first.evaluation.id).not.toBe(second.evaluation.id);
   });
+
+  it("lists in created-time/id descending order without duplicate cursor pages", async () => {
+    const repository = new InMemoryAccessibilityEvaluationRepository();
+    const created = [
+      await repository.create(input({ scannerRunId: "7d41977d-ffb9-4388-af0a-0f74c8ee64ab" })),
+      await repository.create(input({ scannerRunId: "8d41977d-ffb9-4388-af0a-0f74c8ee64ab" })),
+      await repository.create(input({ scannerRunId: "9d41977d-ffb9-4388-af0a-0f74c8ee64ab" })),
+    ];
+    const first = await repository.list({ limit: 2 });
+    expect(first.evaluations).toHaveLength(2);
+    expect(first.nextPosition).not.toBeNull();
+    const second = await repository.list({ limit: 2, before: first.nextPosition! });
+    expect(second.evaluations).toHaveLength(1);
+    expect(new Set([...first.evaluations, ...second.evaluations].map((item) => item.id)).size).toBe(3);
+    expect(new Set(created.map((item) => item.evaluation.id))).toEqual(new Set([...first.evaluations, ...second.evaluations].map((item) => item.id)));
+  });
 });

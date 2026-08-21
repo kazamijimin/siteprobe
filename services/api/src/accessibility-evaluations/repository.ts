@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, lt, or } from "drizzle-orm";
 import {
   accessibilityEvaluationCreateSchema,
   accessibilityEvaluationResponseSchema,
@@ -29,7 +29,23 @@ export interface AccessibilityEvaluationRepository {
   create(input: AccessibilityEvaluationCreate): Promise<{ evaluation: AccessibilityEvaluationResponse; created: boolean }> | { evaluation: AccessibilityEvaluationResponse; created: boolean };
   findById(id: string): Promise<AccessibilityEvaluationResponse | undefined> | AccessibilityEvaluationResponse | undefined;
   findByScannerRun(scannerRunId: string, evaluatorVersion: number, engineVersion: string): Promise<AccessibilityEvaluationResponse | undefined> | AccessibilityEvaluationResponse | undefined;
+  list(options: ListAccessibilityEvaluationsOptions): Promise<AccessibilityEvaluationListPage> | AccessibilityEvaluationListPage;
 }
+
+export type AccessibilityEvaluationListPosition = {
+  createdAt: string;
+  id: string;
+};
+
+export type ListAccessibilityEvaluationsOptions = {
+  limit: number;
+  before?: AccessibilityEvaluationListPosition;
+};
+
+export type AccessibilityEvaluationListPage = {
+  evaluations: AccessibilityEvaluationResponse[];
+  nextPosition: AccessibilityEvaluationListPosition | null;
+};
 
 function normalizeInput(input: AccessibilityEvaluationCreate): string {
   const parsed = accessibilityEvaluationCreateSchema.parse(input);
@@ -108,6 +124,35 @@ function comparableInput(response: AccessibilityEvaluationResponse): Accessibili
   });
 }
 
+function compareRows(left: AccessibilityEvaluationRow, right: AccessibilityEvaluationRow): number {
+  const createdDifference = right.createdAt.getTime() - left.createdAt.getTime();
+  if (createdDifference !== 0) return createdDifference;
+  if (left.id === right.id) return 0;
+  return left.id > right.id ? -1 : 1;
+}
+
+function isBeforeCursor(row: AccessibilityEvaluationRow, cursor: AccessibilityEvaluationListPosition): boolean {
+  const rowCreatedAt = row.createdAt.getTime();
+  const cursorCreatedAt = Date.parse(cursor.createdAt);
+  return rowCreatedAt < cursorCreatedAt
+    || (rowCreatedAt === cursorCreatedAt && row.id < cursor.id);
+}
+
+function pageFromResponses(
+  responses: AccessibilityEvaluationResponse[],
+  limit: number,
+): AccessibilityEvaluationListPage {
+  const hasMore = responses.length > limit;
+  const evaluations = responses.slice(0, limit);
+  const last = evaluations.at(-1);
+  return {
+    evaluations,
+    nextPosition: hasMore && last
+      ? { createdAt: last.createdAt, id: last.id }
+      : null,
+  };
+}
+
 export class InMemoryAccessibilityEvaluationRepository implements AccessibilityEvaluationRepository {
   private readonly rows = new Map<string, AccessibilityEvaluationRow>();
   private readonly byComposite = new Map<string, string>();
@@ -138,6 +183,14 @@ export class InMemoryAccessibilityEvaluationRepository implements AccessibilityE
   findByScannerRun(scannerRunId: string, evaluatorVersion: number, engineVersion: string) {
     const id = this.byComposite.get(compositeKey({ scannerRunId, evaluatorVersion, engineVersion }));
     return id ? this.findById(id) : undefined;
+  }
+
+  list(options: ListAccessibilityEvaluationsOptions): AccessibilityEvaluationListPage {
+    const rows = [...this.rows.values()]
+      .filter((row) => !options.before || isBeforeCursor(row, options.before))
+      .sort(compareRows)
+      .slice(0, options.limit + 1);
+    return pageFromResponses(rows.map(toResponse), options.limit);
   }
 }
 
@@ -173,5 +226,25 @@ export class PostgresAccessibilityEvaluationRepository implements AccessibilityE
       eq(accessibilityEvaluations.engineVersion, engineVersion),
     )).limit(1);
     return rows[0] ? toResponse(rows[0]) : undefined;
+  }
+
+  async list(options: ListAccessibilityEvaluationsOptions): Promise<AccessibilityEvaluationListPage> {
+    const cursorDate = options.before ? new Date(options.before.createdAt) : undefined;
+    const cursorFilter = options.before && cursorDate
+      ? or(
+        lt(accessibilityEvaluations.createdAt, cursorDate),
+        and(eq(accessibilityEvaluations.createdAt, cursorDate), lt(accessibilityEvaluations.id, options.before.id)),
+      )
+      : undefined;
+    const query = this.db.select().from(accessibilityEvaluations);
+    const rows = cursorFilter
+      ? await query
+        .where(cursorFilter)
+        .orderBy(desc(accessibilityEvaluations.createdAt), desc(accessibilityEvaluations.id))
+        .limit(options.limit + 1)
+      : await query
+        .orderBy(desc(accessibilityEvaluations.createdAt), desc(accessibilityEvaluations.id))
+        .limit(options.limit + 1);
+    return pageFromResponses(rows.map(toResponse), options.limit);
   }
 }
