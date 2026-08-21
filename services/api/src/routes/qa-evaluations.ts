@@ -2,7 +2,12 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import type { FastifyPluginAsync } from "fastify";
 import {
   controlledQaEvaluationCreateSchema,
+  controlledQaEvaluationListItemSchema,
   controlledQaEvaluationPublicResponseSchema,
+  listControlledQaEvaluationsQuerySchema,
+  listControlledQaEvaluationsResponseSchema,
+  qaEvaluationListCursorPayloadSchema,
+  qaEvaluationListCursorSchema,
   qaEvaluationIdParamsSchema,
   type ControlledQaEvaluationCreate,
   type ControlledQaEvaluationResponse,
@@ -61,6 +66,35 @@ function projectPublicEvaluation(evaluation: ControlledQaEvaluationResponse) {
   return projected.data;
 }
 
+function projectPublicEvaluationListItem(evaluation: ControlledQaEvaluationResponse) {
+  const projected = controlledQaEvaluationListItemSchema.safeParse({
+    id: evaluation.id,
+    source: evaluation.source,
+    evaluatorVersion: evaluation.evaluatorVersion,
+    requestedUrl: evaluation.requestedUrl,
+    scannedAt: evaluation.scannedAt,
+    createdAt: evaluation.createdAt,
+    summary: evaluation.evaluation.summary,
+  });
+  if (!projected.success) {
+    throw new QaEvaluationPersistenceCorruptionError("Stored QA evaluation failed public list contract validation", { cause: projected.error });
+  }
+  return projected.data;
+}
+
+function encodeCursor(position: { createdAt: string; id: string }): string {
+  const payload = qaEvaluationListCursorPayloadSchema.parse({ v: 1, ...position });
+  return qaEvaluationListCursorSchema.parse(Buffer.from(JSON.stringify(payload), "utf8").toString("base64url"));
+}
+
+function decodeCursor(cursor: string): { createdAt: string; id: string } {
+  const validatedCursor = qaEvaluationListCursorSchema.parse(cursor);
+  const payload = qaEvaluationListCursorPayloadSchema.parse(
+    JSON.parse(Buffer.from(validatedCursor, "base64url").toString("utf8")) as unknown,
+  );
+  return { createdAt: payload.createdAt, id: payload.id };
+}
+
 export const qaEvaluationRoutes = (options: QaRouteOptions): FastifyPluginAsync => async (app) => {
   app.post("/internal/qa-evaluations", async (request, reply) => {
     if (!authorize(request, reply, options.token)) return;
@@ -96,6 +130,44 @@ export const qaEvaluationRoutes = (options: QaRouteOptions): FastifyPluginAsync 
     const evaluation = await options.repository.findById(params.data.id);
     if (!evaluation) return reply.code(404).send(errorEnvelope("NOT_FOUND", "QA evaluation not found", request.id));
     return reply.code(200).send(evaluation);
+  });
+
+  app.get("/api/qa-evaluations", async (request, reply) => {
+    reply.header("Cache-Control", "no-store");
+    if (!options.publicReadEnabled) {
+      return reply.code(404).send(errorEnvelope("NOT_FOUND", "QA evaluations not found", request.id));
+    }
+
+    const query = listControlledQaEvaluationsQuerySchema.safeParse(request.query);
+    if (!query.success) {
+      return reply.code(400).send(errorEnvelope(
+        "VALIDATION_ERROR",
+        "Request validation failed",
+        request.id,
+        query.error.issues.map((issue) => ({ path: issue.path.join(".") || "query", message: issue.message })),
+      ));
+    }
+
+    let before: { createdAt: string; id: string } | undefined;
+    if (query.data.cursor) {
+      try {
+        before = decodeCursor(query.data.cursor);
+      } catch {
+        return reply.code(400).send(errorEnvelope(
+          "VALIDATION_ERROR",
+          "Request validation failed",
+          request.id,
+          [{ path: "cursor", message: "Cursor is invalid" }],
+        ));
+      }
+    }
+
+    const page = await options.repository.list({ limit: query.data.limit, before });
+    const response = listControlledQaEvaluationsResponseSchema.parse({
+      evaluations: page.evaluations.map(projectPublicEvaluationListItem),
+      nextCursor: page.nextPosition ? encodeCursor(page.nextPosition) : null,
+    });
+    return reply.code(200).send(response);
   });
 
   app.get("/api/qa-evaluations/:id", async (request, reply) => {

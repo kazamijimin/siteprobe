@@ -100,6 +100,15 @@ export default function HomeScreen() {
             style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}>
             <Text style={styles.secondaryButtonText}>View Scan History</Text>
           </Pressable>
+
+          <Pressable
+            accessibilityLabel="View Controlled QA Evaluations"
+            accessibilityRole="button"
+            onPress={() => router.push('./qa-evaluations')}
+            style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}>
+            <Text style={styles.secondaryButtonText}>View Controlled QA Evaluations</Text>
+            <Text style={styles.secondaryButtonHint}>Controlled development</Text>
+          </Pressable>
         </View>
       </View>
     </View>
@@ -188,5 +197,10 @@ const styles = StyleSheet.create({
     color: '#2563EB',
     fontSize: 16,
     fontWeight: '700',
+  },
+  secondaryButtonHint: {
+    color: '#4A5568',
+    fontSize: 12,
+    marginTop: 3,
   },
 });

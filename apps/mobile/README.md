@@ -4,6 +4,7 @@ This Expo SDK 57 application is the SiteProbe mobile client.
 
 ## Routes
 
+- /qa-evaluations - development-gated controlled QA evaluation index
 - /qa-evaluations/[id] - development-gated controlled QA evaluation detail
 
 - `/` — URL entry and fake scan creation
@@ -21,7 +22,7 @@ Product Phase P5 displays already-stored controlled evaluation snapshots. Viewin
 an evaluation does not initiate scanning. The API read adapter is disabled by
 default and is intended only for controlled development with
 QA_EVALUATION_PUBLIC_READ_ENABLED=true configured in the API environment. The
-the internal QA evaluation token remains server-side only and must never be placed
+internal QA evaluation token remains server-side only and must never be placed
 in this app or an EXPO_PUBLIC_* variable.
 
 ## Development
@@ -52,3 +53,13 @@ To inspect a known controlled evaluation during local development:
 
 The detail screen is read-only, keeps the six findings in evaluator order, shows
 structured evidence as plain text, and does not provide a scan or rescan action.
+
+To browse persisted controlled evaluations during local development:
+
+1. Set `QA_EVALUATION_PUBLIC_READ_ENABLED=true` in `services/api/.env` only.
+2. Open `http://localhost:8082/qa-evaluations` in Expo web, or choose `View Controlled QA Evaluations` from Home.
+3. Select an evaluation card to open the existing detail screen.
+
+The index is read-only and lists summaries only. Controlled fixture generation
+and authenticated ingestion remain part of a later phase; known evaluations
+must still be created through the existing internal workflow.

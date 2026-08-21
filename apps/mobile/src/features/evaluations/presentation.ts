@@ -1,9 +1,21 @@
 import type {
+  ControlledQaEvaluationListItem,
   QaCategory,
+  QaEvaluationSummary,
   QaEvidence,
   QaFindingStatus,
   QaSeverity,
 } from '@siteprobe/contracts';
+
+export function formatEvaluationSource(item: Pick<ControlledQaEvaluationListItem, 'source' | 'evaluatorVersion'>): string {
+  return item.source === 'controlled-scanner'
+    ? `Controlled scanner · Evaluator v${item.evaluatorVersion}`
+    : item.source;
+}
+
+export function formatEvaluationSummary(summary: QaEvaluationSummary): string {
+  return `Critical ${summary.critical} · Warnings ${summary.warnings} · Passed ${summary.passed} · N/A ${summary.notApplicable}`;
+}
 
 export function formatQaStatus(status: QaFindingStatus): string {
   if (status === 'notApplicable') return 'Not applicable';

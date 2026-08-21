@@ -106,6 +106,7 @@ describeDatabase("PostgreSQL QA evaluation persistence", () => {
       finalUrl: value.finalUrl,
       scannedAt: new Date(value.scannedAt),
       evaluationJson: value.evaluation,
+      createdAt: new Date("2000-01-01T00:00:00.000Z"),
     });
     await expect(connection.db.select({ evaluatorVersion: qaEvaluations.evaluatorVersion })
       .from(qaEvaluations)
@@ -119,6 +120,8 @@ describeDatabase("PostgreSQL QA evaluation persistence", () => {
     ids.push(created.evaluation.id);
     await connection.db.update(qaEvaluations).set({ evaluationJson: {} as never }).where(eq(qaEvaluations.id, created.evaluation.id));
     await expect(repository.findById(created.evaluation.id)).rejects.toThrow(QaEvaluationPersistenceCorruptionError);
+    await connection.db.delete(qaEvaluations).where(eq(qaEvaluations.id, created.evaluation.id));
+    ids.splice(ids.indexOf(created.evaluation.id), 1);
   });
 
   it("allows a future evaluator version at the database layer", async () => {
@@ -135,7 +138,63 @@ describeDatabase("PostgreSQL QA evaluation persistence", () => {
       finalUrl: value.finalUrl,
       scannedAt: new Date(value.scannedAt),
       evaluationJson: value.evaluation,
+      createdAt: new Date("2000-01-01T00:00:00.000Z"),
     });
     await expect(connection.db.select({ id: qaEvaluations.id }).from(qaEvaluations).where(eq(qaEvaluations.id, id))).resolves.toHaveLength(1);
+  });
+
+  it("lists rows with created-at and UUID keyset pagination", async () => {
+    if (ids.length > 0) {
+      await connection.db.delete(qaEvaluations).where(inArray(qaEvaluations.id, ids));
+      ids.length = 0;
+    }
+    const value = input();
+    const rows = [
+      { id: randomUUID(), createdAt: "2099-01-01T00:00:00.000Z" },
+      { id: randomUUID(), createdAt: "2099-01-02T00:00:00.000Z" },
+      { id: randomUUID(), createdAt: "2099-01-02T00:00:00.000Z" },
+    ];
+    ids.push(...rows.map((row) => row.id));
+    await connection.db.insert(qaEvaluations).values(rows.map((row) => ({
+      id: row.id,
+      scannerRunId: randomUUID(),
+      source: "controlled-scanner" as const,
+      schemaVersion: 1,
+      evaluatorVersion: 1,
+      requestedUrl: value.requestedUrl,
+      finalUrl: value.finalUrl,
+      scannedAt: new Date(value.scannedAt),
+      evaluationJson: value.evaluation,
+      createdAt: new Date(row.createdAt),
+    })));
+
+    const first = await repository.list({ limit: 2 });
+    const expectedTieOrder = rows.slice(1).sort((left, right) => left.id > right.id ? -1 : 1);
+    expect(first.evaluations.slice(0, 2).map((item) => item.id)).toEqual(expectedTieOrder.map((row) => row.id));
+    expect(first.nextPosition).toEqual({ createdAt: first.evaluations[1].createdAt, id: first.evaluations[1].id });
+
+    const second = await repository.list({ limit: 2, before: first.nextPosition! });
+    expect(second.evaluations[0].id).toBe(rows[0].id);
+    expect(second.nextPosition).toBeNull();
+    expect(new Set([...first.evaluations, ...second.evaluations].map((item) => item.id)).size).toBe(3);
+  });
+
+  it("fails the entire list when a selected JSONB row is corrupt", async () => {
+    const value = input();
+    const id = randomUUID();
+    ids.push(id);
+    await connection.db.insert(qaEvaluations).values({
+      id,
+      scannerRunId: randomUUID(),
+      source: "controlled-scanner",
+      schemaVersion: 1,
+      evaluatorVersion: 1,
+      requestedUrl: value.requestedUrl,
+      finalUrl: value.finalUrl,
+      scannedAt: new Date(value.scannedAt),
+      evaluationJson: {} as never,
+      createdAt: new Date("2099-12-31T00:00:00.000Z"),
+    });
+    await expect(repository.list({ limit: 20 })).rejects.toThrow(QaEvaluationPersistenceCorruptionError);
   });
 });

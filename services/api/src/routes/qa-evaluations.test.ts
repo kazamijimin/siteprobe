@@ -65,6 +65,7 @@ describe("internal QA evaluation routes", () => {
       create: repository.create.bind(repository),
       findById: () => { throw new QaEvaluationPersistenceCorruptionError("corrupt"); },
       findByScannerRun: repository.findByScannerRun.bind(repository),
+      list: repository.list.bind(repository),
     };
     const app = buildApp({ logger: false, qaEvaluationInternalToken: token, qaEvaluationRepository: corruptingRepository });
     const response = await app.inject({ method: "GET", url: "/internal/qa-evaluations/5d41977d-ffb9-4388-af0a-0f74c8ee64ab", headers: { authorization: `Bearer ${token}` } });
@@ -82,6 +83,7 @@ describe("development-gated public QA evaluation route", () => {
       create: vi.fn(source.create.bind(source)),
       findById: vi.fn(source.findById.bind(source)),
       findByScannerRun: vi.fn(source.findByScannerRun.bind(source)),
+      list: vi.fn(source.list.bind(source)),
     };
     return { created, repository };
   }
@@ -166,6 +168,7 @@ describe("development-gated public QA evaluation route", () => {
       create: repository.create,
       findById: () => { throw new QaEvaluationPersistenceCorruptionError("corrupt"); },
       findByScannerRun: repository.findByScannerRun,
+      list: repository.list,
     };
     const corruptApp = buildApp({ logger: false, qaEvaluationRepository: corruptingRepository, qaEvaluationPublicReadEnabled: true });
     const corrupt = await corruptApp.inject({ method: "GET", url: `/api/qa-evaluations/${created.id}` });
@@ -174,5 +177,112 @@ describe("development-gated public QA evaluation route", () => {
 
     await app.close();
     await corruptApp.close();
+  });
+});
+
+describe("development-gated public QA evaluation index", () => {
+  function repositoryWithList() {
+    const source = new InMemoryQaEvaluationRepository();
+    const first = source.create(body).evaluation;
+    const second = source.create({ ...body, scannerRunId: "6d41977d-ffb9-4388-af0a-0f74c8ee64ab" }).evaluation;
+    const repository: QaEvaluationRepository = {
+      create: vi.fn(source.create.bind(source)),
+      findById: vi.fn(source.findById.bind(source)),
+      findByScannerRun: vi.fn(source.findByScannerRun.bind(source)),
+      list: vi.fn(source.list.bind(source)),
+    };
+    return { first, second, repository };
+  }
+
+  it("returns 404 before query parsing or repository access when disabled", async () => {
+    const { repository } = repositoryWithList();
+    for (const enabled of [undefined, false]) {
+      const app = buildApp({ logger: false, qaEvaluationRepository: repository, qaEvaluationPublicReadEnabled: enabled });
+      const response = await app.inject({ method: "GET", url: "/api/qa-evaluations?limit=9999&cursor=invalid!!" });
+      expect(response.statusCode).toBe(404);
+      expect(response.headers["cache-control"]).toBe("no-store");
+      await app.close();
+    }
+    expect(repository.list).not.toHaveBeenCalled();
+    expect(repository.findById).not.toHaveBeenCalled();
+  });
+
+  it("lists a reduced projection with stable cursor pagination", async () => {
+    const { repository } = repositoryWithList();
+    const app = buildApp({ logger: false, qaEvaluationRepository: repository, qaEvaluationPublicReadEnabled: true });
+
+    const firstPage = await app.inject({ method: "GET", url: "/api/qa-evaluations?limit=1" });
+    expect(firstPage.statusCode).toBe(200);
+    expect(firstPage.headers["cache-control"]).toBe("no-store");
+    const firstJson = firstPage.json();
+    expect(firstJson.evaluations).toHaveLength(1);
+    expect(firstJson.evaluations[0]).toEqual(expect.objectContaining({
+      id: expect.any(String),
+      source: "controlled-scanner",
+      evaluatorVersion: 1,
+      requestedUrl: body.requestedUrl,
+      scannedAt: body.scannedAt,
+      createdAt: expect.any(String),
+      summary: body.evaluation.summary,
+    }));
+    expect(firstJson.evaluations[0]).not.toHaveProperty("scannerRunId");
+    expect(firstJson.evaluations[0]).not.toHaveProperty("finalUrl");
+    expect(firstJson.evaluations[0]).not.toHaveProperty("score");
+    expect(firstJson.evaluations[0]).not.toHaveProperty("evaluation");
+    expect(firstJson.nextCursor).toEqual(expect.any(String));
+
+    const secondPage = await app.inject({ method: "GET", url: `/api/qa-evaluations?limit=1&cursor=${encodeURIComponent(firstJson.nextCursor)}` });
+    expect(secondPage.statusCode).toBe(200);
+    expect(secondPage.json().evaluations).toHaveLength(1);
+    expect(secondPage.json().evaluations[0].id).not.toBe(firstJson.evaluations[0].id);
+    expect(secondPage.json().nextCursor).toBeNull();
+    expect(repository.list).toHaveBeenCalledTimes(2);
+    expect(repository.findById).not.toHaveBeenCalled();
+    expect(repository.create).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it("validates enabled query bounds, unknown fields, and cursors", async () => {
+    const { repository } = repositoryWithList();
+    const app = buildApp({ logger: false, qaEvaluationRepository: repository, qaEvaluationPublicReadEnabled: true });
+    for (const url of [
+      "/api/qa-evaluations?limit=0",
+      "/api/qa-evaluations?limit=51",
+      "/api/qa-evaluations?q=example",
+      "/api/qa-evaluations?cursor=invalid!!",
+    ]) {
+      const response = await app.inject({ method: "GET", url });
+      expect(response.statusCode).toBe(400);
+    }
+    expect(repository.list).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it("maps list persistence corruption to a generic 500 without external activity", async () => {
+    const repository: QaEvaluationRepository = {
+      create: vi.fn(),
+      findById: vi.fn(),
+      findByScannerRun: vi.fn(),
+      list: vi.fn(() => { throw new QaEvaluationPersistenceCorruptionError("corrupt"); }),
+    };
+    const scannerCalls = vi.fn();
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const app = buildApp({
+      logger: false,
+      qaEvaluationRepository: repository,
+      qaEvaluationPublicReadEnabled: true,
+      scannerClient: { scan: scannerCalls },
+    });
+    const response = await app.inject({ method: "GET", url: "/api/qa-evaluations" });
+    expect(response.statusCode).toBe(500);
+    expect(response.json().error.code).toBe("INTERNAL_ERROR");
+    expect(repository.list).toHaveBeenCalledTimes(1);
+    expect(repository.findById).not.toHaveBeenCalled();
+    expect(repository.create).not.toHaveBeenCalled();
+    expect(scannerCalls).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+    await app.close();
+    vi.unstubAllGlobals();
   });
 });

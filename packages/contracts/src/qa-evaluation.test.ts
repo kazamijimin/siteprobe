@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   controlledQaEvaluationCreateSchema,
+  controlledQaEvaluationListItemSchema,
   controlledQaEvaluationPublicResponseSchema,
   controlledQaEvaluationResponseSchema,
+  listControlledQaEvaluationsQuerySchema,
+  listControlledQaEvaluationsResponseSchema,
+  qaEvaluationListCursorPayloadSchema,
+  qaEvaluationListCursorSchema,
   qaEvaluationIdParamsSchema,
   qaEvaluationSchema,
 } from "./qa-evaluation.js";
@@ -106,5 +111,40 @@ describe("controlled QA evaluation contracts", () => {
           : finding),
       },
     })).toThrow();
+  });
+
+  it("validates the reduced strict list projection and rejects detail-only fields", () => {
+    const item = {
+      id: create.scannerRunId,
+      source: "controlled-scanner",
+      evaluatorVersion: 1,
+      requestedUrl: create.requestedUrl,
+      scannedAt: create.scannedAt,
+      createdAt: create.scannedAt,
+      summary: create.evaluation.summary,
+    };
+    expect(controlledQaEvaluationListItemSchema.parse(item)).toEqual(item);
+    for (const field of ["scannerRunId", "finalUrl", "score", "findings", "evaluation", "evidence"]) {
+      expect(() => controlledQaEvaluationListItemSchema.parse({ ...item, [field]: field === "findings" ? [] : field === "evidence" ? {} : null })).toThrow();
+    }
+    expect(() => controlledQaEvaluationListItemSchema.parse({ ...item, extra: true })).toThrow();
+  });
+
+  it("validates list responses, bounded limits, and QA-specific opaque cursors", () => {
+    const payload = { v: 1 as const, createdAt: create.scannedAt, id: create.scannerRunId };
+    const cursor = Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
+    expect(qaEvaluationListCursorPayloadSchema.parse(payload)).toEqual(payload);
+    expect(qaEvaluationListCursorSchema.parse(cursor)).toBe(cursor);
+    expect(listControlledQaEvaluationsQuerySchema.parse({})).toEqual({ limit: 20 });
+    expect(listControlledQaEvaluationsQuerySchema.parse({ limit: "1", cursor })).toEqual({ limit: 1, cursor });
+    expect(listControlledQaEvaluationsQuerySchema.parse({ limit: 50 })).toEqual({ limit: 50 });
+    expect(listControlledQaEvaluationsResponseSchema.parse({ evaluations: [], nextCursor: null })).toEqual({ evaluations: [], nextCursor: null });
+    expect(listControlledQaEvaluationsResponseSchema.parse({ evaluations: [], nextCursor: cursor })).toEqual({ evaluations: [], nextCursor: cursor });
+    for (const limit of [0, 51]) expect(() => listControlledQaEvaluationsQuerySchema.parse({ limit })).toThrow();
+    expect(() => listControlledQaEvaluationsQuerySchema.parse({ limit: 20, q: "example" })).toThrow();
+    expect(() => qaEvaluationListCursorSchema.parse("not-valid!!")).toThrow();
+    expect(() => qaEvaluationListCursorPayloadSchema.parse({ ...payload, v: 2 })).toThrow();
+    expect(() => qaEvaluationListCursorPayloadSchema.parse({ v: 1, createdAt: "bad", id: "bad" })).toThrow();
+    expect(() => listControlledQaEvaluationsResponseSchema.parse({ evaluations: [], nextCursor: null, extra: true })).toThrow();
   });
 });

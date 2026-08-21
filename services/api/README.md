@@ -82,3 +82,19 @@ without scannerRunId or scores, and sets Cache-Control: no-store. It never
 invokes the evaluator, scanner, browser, DNS, or a database write. A disabled
 adapter returns 404 without querying the repository. The internal token remains
 server-side and is never required by Expo.
+
+Product Phase P6 adds a development-gated, read-only evaluation index:
+
+~~~text
+GET /api/qa-evaluations
+GET /api/qa-evaluations?limit=20&cursor=<opaque-cursor>
+~~~
+
+It reuses `QA_EVALUATION_PUBLIC_READ_ENABLED`, defaults to disabled, and
+returns `404` before query parsing or repository access when disabled. When
+enabled, it returns compact controlled-scanner summaries ordered by
+`created_at DESC, id DESC` using a versioned, base64url-encoded keyset cursor.
+The list excludes scanner run IDs, final URLs, findings, evidence, and scores,
+and uses `Cache-Control: no-store`. Listing performs repository reads only; it
+never invokes the evaluator, scanner, browser, DNS, target network, or a
+database write. Fixture generation and ingestion remain deferred to P7.
