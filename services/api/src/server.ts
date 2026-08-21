@@ -18,6 +18,7 @@ const app = buildApp({
   repository: new PostgresScanRepository(connection.db),
   qaEvaluationRepository: new PostgresQaEvaluationRepository(connection.db),
   qaEvaluationInternalToken: config.qaEvaluationInternalToken,
+  qaEvaluationPublicReadEnabled: config.qaEvaluationPublicReadEnabled,
 });
 
 let shuttingDown = false;

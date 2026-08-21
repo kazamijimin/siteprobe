@@ -1,9 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import type { ControlledQaEvaluationCreate } from "@siteprobe/contracts";
 import { buildApp } from "../app.js";
-import { InMemoryQaEvaluationRepository, QaEvaluationPersistenceCorruptionError } from "../evaluations/repository.js";
+import { InMemoryQaEvaluationRepository, QaEvaluationPersistenceCorruptionError, type QaEvaluationRepository } from "../evaluations/repository.js";
 
 const token = "qa-test-token-which-is-long-enough";
-const body = {
+const body: ControlledQaEvaluationCreate = {
   schemaVersion: 1,
   evaluatorVersion: 1,
   scannerRunId: "5d41977d-ffb9-4388-af0a-0f74c8ee64ab",
@@ -70,5 +71,108 @@ describe("internal QA evaluation routes", () => {
     expect(response.statusCode).toBe(500);
     expect(response.json().error.code).toBe("INTERNAL_ERROR");
     await app.close();
+  });
+});
+
+describe("development-gated public QA evaluation route", () => {
+  function repositoryWithBody() {
+    const source = new InMemoryQaEvaluationRepository();
+    const created = source.create(body).evaluation;
+    const repository: QaEvaluationRepository = {
+      create: vi.fn(source.create.bind(source)),
+      findById: vi.fn(source.findById.bind(source)),
+      findByScannerRun: vi.fn(source.findByScannerRun.bind(source)),
+    };
+    return { created, repository };
+  }
+
+  it("returns 404 before repository access when the flag is absent or false", async () => {
+    const { created, repository } = repositoryWithBody();
+    const scannerCalls = vi.fn();
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    for (const enabled of [undefined, false]) {
+      const app = buildApp({
+        logger: false,
+        qaEvaluationRepository: repository,
+        qaEvaluationPublicReadEnabled: enabled,
+        scannerClient: { scan: scannerCalls },
+      });
+      const response = await app.inject({ method: "GET", url: `/api/qa-evaluations/${created.id}` });
+      expect(response.statusCode).toBe(404);
+      expect(response.json().error.code).toBe("NOT_FOUND");
+      expect(response.headers["cache-control"]).toBe("no-store");
+      await app.close();
+    }
+
+    expect(repository.findById).not.toHaveBeenCalled();
+    expect(repository.create).not.toHaveBeenCalled();
+    expect(repository.findByScannerRun).not.toHaveBeenCalled();
+    expect(scannerCalls).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it("returns a validated projection and performs only one repository read", async () => {
+    const { created, repository } = repositoryWithBody();
+    const scannerCalls = vi.fn();
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const app = buildApp({
+      logger: false,
+      qaEvaluationRepository: repository,
+      qaEvaluationPublicReadEnabled: true,
+      scannerClient: { scan: scannerCalls },
+    });
+
+    const response = await app.inject({ method: "GET", url: `/api/qa-evaluations/${created.id}` });
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["cache-control"]).toBe("no-store");
+    expect(response.json()).toEqual({
+      id: created.id,
+      source: "controlled-scanner",
+      schemaVersion: 1,
+      evaluatorVersion: 1,
+      requestedUrl: created.requestedUrl,
+      finalUrl: created.finalUrl,
+      scannedAt: created.scannedAt,
+      evaluation: created.evaluation,
+      createdAt: created.createdAt,
+    });
+    expect(response.json()).not.toHaveProperty("scannerRunId");
+    expect(response.json()).not.toHaveProperty("score");
+    expect(repository.findById).toHaveBeenCalledTimes(1);
+    expect(repository.create).not.toHaveBeenCalled();
+    expect(repository.findByScannerRun).not.toHaveBeenCalled();
+    expect(scannerCalls).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+    await app.close();
+    vi.unstubAllGlobals();
+  });
+
+  it("validates IDs, reports missing records, and hides persisted corruption", async () => {
+    const { created, repository } = repositoryWithBody();
+    const app = buildApp({ logger: false, qaEvaluationRepository: repository, qaEvaluationPublicReadEnabled: true });
+
+    const invalid = await app.inject({ method: "GET", url: "/api/qa-evaluations/not-a-uuid" });
+    expect(invalid.statusCode).toBe(400);
+    expect(repository.findById).toHaveBeenCalledTimes(0);
+
+    const missing = await app.inject({ method: "GET", url: "/api/qa-evaluations/5d41977d-ffb9-4388-af0a-0f74c8ee64ac" });
+    expect(missing.statusCode).toBe(404);
+
+    const corruptingRepository: QaEvaluationRepository = {
+      create: repository.create,
+      findById: () => { throw new QaEvaluationPersistenceCorruptionError("corrupt"); },
+      findByScannerRun: repository.findByScannerRun,
+    };
+    const corruptApp = buildApp({ logger: false, qaEvaluationRepository: corruptingRepository, qaEvaluationPublicReadEnabled: true });
+    const corrupt = await corruptApp.inject({ method: "GET", url: `/api/qa-evaluations/${created.id}` });
+    expect(corrupt.statusCode).toBe(500);
+    expect(corrupt.json()).toEqual(expect.objectContaining({ error: expect.objectContaining({ code: "INTERNAL_ERROR" }) }));
+
+    await app.close();
+    await corruptApp.close();
   });
 });

@@ -14,6 +14,7 @@ Phase G also provides an additive API scanner client configuration:
 SCANNER_URL=http://127.0.0.1:3100
 SCANNER_INTERNAL_TOKEN=
 QA_EVALUATION_INTERNAL_TOKEN=
+QA_EVALUATION_PUBLIC_READ_ENABLED=false
 ```
 
 These values are server-side only. The client is tested but intentionally not
@@ -67,3 +68,17 @@ payloads return `409`, and stored contract corruption returns `500`. The routes
 accept complete evaluator snapshots only—there is no URL-only ingestion, public
 evaluation route, update/delete endpoint, score, scanner call, DNS lookup, or
 browser launch.
+
+Product Phase P5 adds a development-only read adapter:
+
+~~~text
+GET /api/qa-evaluations/:id
+~~~
+
+It is disabled unless the server-only
+QA_EVALUATION_PUBLIC_READ_ENABLED=true flag is explicitly set. When enabled,
+it reads one persisted evaluation through findById, returns a strict projection
+without scannerRunId or scores, and sets Cache-Control: no-store. It never
+invokes the evaluator, scanner, browser, DNS, or a database write. A disabled
+adapter returns 404 without querying the repository. The internal token remains
+server-side and is never required by Expo.
