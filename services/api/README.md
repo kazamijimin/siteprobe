@@ -114,3 +114,22 @@ HTTP and authenticated requests refuse redirects. The scanner receives no API
 token or database credentials. P7 uses in-process `fixture.invalid` route
 fulfillment and does not use the private scanner worker. Phase H remains
 deferred pending verified isolation.
+
+## Product Phase P8 accessibility persistence
+
+P8 adds the independent `accessibility_evaluations` JSONB snapshot table and
+authenticated internal routes:
+
+```text
+POST /internal/accessibility-evaluations
+GET  /internal/accessibility-evaluations/:id
+Authorization: Bearer <QA_EVALUATION_INTERNAL_TOKEN>
+```
+
+The routes reuse `QA_EVALUATION_INTERNAL_TOKEN`, accept only the controlled
+`fixture.invalid` host, enforce strict Accessibility Evaluation v1 contracts,
+and have no public or mobile adapter. Rows are immutable and idempotent on
+`(scannerRunId, evaluatorVersion, engineVersion)`; equivalent retries return
+`200`, conflicts return `409`, and corrupt JSONB is surfaced as a persistence
+error. Accessibility ingestion occurs only after the core P3 evaluator has been
+persisted by the developer-only P8 workflow.

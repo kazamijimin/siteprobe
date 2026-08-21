@@ -10,7 +10,7 @@ import {
   unique,
   uuid,
 } from "drizzle-orm/pg-core";
-import type { ControlledQaEvaluationCreate, ScanStatus } from "@siteprobe/contracts";
+import type { AccessibilityEvaluationCreate, ControlledQaEvaluationCreate, ScanStatus } from "@siteprobe/contracts";
 
 export const scans = pgTable(
   "scans",
@@ -79,3 +79,45 @@ export const qaEvaluations = pgTable(
 
 export type QaEvaluationRow = typeof qaEvaluations.$inferSelect;
 export type NewQaEvaluationRow = typeof qaEvaluations.$inferInsert;
+
+type StoredAccessibilityEvaluationJson = {
+  evaluation: AccessibilityEvaluationCreate["evaluation"];
+  adapter: AccessibilityEvaluationCreate["adapter"];
+  adapterVersion: AccessibilityEvaluationCreate["adapterVersion"];
+  rulesetTags: AccessibilityEvaluationCreate["rulesetTags"];
+};
+
+export const accessibilityEvaluations = pgTable(
+  "accessibility_evaluations",
+  {
+    id: uuid("id").primaryKey(),
+    scannerRunId: uuid("scanner_run_id").notNull(),
+    source: text("source").notNull().default("controlled-scanner"),
+    schemaVersion: smallint("schema_version").notNull(),
+    evaluatorVersion: smallint("evaluator_version").notNull(),
+    engine: text("engine").notNull(),
+    engineVersion: text("engine_version").notNull(),
+    requestedUrl: text("requested_url").notNull(),
+    finalUrl: text("final_url"),
+    scannedAt: timestamp("scanned_at", { withTimezone: true, mode: "date" }).notNull(),
+    evaluationJson: jsonb("evaluation_json").$type<StoredAccessibilityEvaluationJson>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => ({
+    scannerRunVersionEngineUnique: unique("accessibility_evaluations_scanner_run_version_engine_unique").on(
+      table.scannerRunId,
+      table.evaluatorVersion,
+      table.engineVersion,
+    ),
+    sourceCheck: check("accessibility_evaluations_source_check", sql`${table.source} = 'controlled-scanner'`),
+    engineCheck: check("accessibility_evaluations_engine_check", sql`${table.engine} = 'axe-core'`),
+    schemaVersionCheck: check("accessibility_evaluations_schema_version_check", sql`${table.schemaVersion} > 0`),
+    evaluatorVersionCheck: check("accessibility_evaluations_evaluator_version_check", sql`${table.evaluatorVersion} > 0`),
+    engineVersionLengthCheck: check("accessibility_evaluations_engine_version_length_check", sql`char_length(${table.engineVersion}) <= 32`),
+    requestedUrlLengthCheck: check("accessibility_evaluations_requested_url_length_check", sql`char_length(${table.requestedUrl}) <= 2048`),
+    finalUrlLengthCheck: check("accessibility_evaluations_final_url_length_check", sql`${table.finalUrl} is null or char_length(${table.finalUrl}) <= 2048`),
+  }),
+);
+
+export type AccessibilityEvaluationRow = typeof accessibilityEvaluations.$inferSelect;
+export type NewAccessibilityEvaluationRow = typeof accessibilityEvaluations.$inferInsert;

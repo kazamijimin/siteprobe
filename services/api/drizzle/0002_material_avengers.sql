@@ -1,0 +1,22 @@
+CREATE TABLE "accessibility_evaluations" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"scanner_run_id" uuid NOT NULL,
+	"source" text DEFAULT 'controlled-scanner' NOT NULL,
+	"schema_version" smallint NOT NULL,
+	"evaluator_version" smallint NOT NULL,
+	"engine" text NOT NULL,
+	"engine_version" text NOT NULL,
+	"requested_url" text NOT NULL,
+	"final_url" text,
+	"scanned_at" timestamp with time zone NOT NULL,
+	"evaluation_json" jsonb NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "accessibility_evaluations_scanner_run_version_engine_unique" UNIQUE("scanner_run_id","evaluator_version","engine_version"),
+	CONSTRAINT "accessibility_evaluations_source_check" CHECK ("accessibility_evaluations"."source" = 'controlled-scanner'),
+	CONSTRAINT "accessibility_evaluations_engine_check" CHECK ("accessibility_evaluations"."engine" = 'axe-core'),
+	CONSTRAINT "accessibility_evaluations_schema_version_check" CHECK ("accessibility_evaluations"."schema_version" > 0),
+	CONSTRAINT "accessibility_evaluations_evaluator_version_check" CHECK ("accessibility_evaluations"."evaluator_version" > 0),
+	CONSTRAINT "accessibility_evaluations_engine_version_length_check" CHECK (char_length("accessibility_evaluations"."engine_version") <= 32),
+	CONSTRAINT "accessibility_evaluations_requested_url_length_check" CHECK (char_length("accessibility_evaluations"."requested_url") <= 2048),
+	CONSTRAINT "accessibility_evaluations_final_url_length_check" CHECK ("accessibility_evaluations"."final_url" is null or char_length("accessibility_evaluations"."final_url") <= 2048)
+);

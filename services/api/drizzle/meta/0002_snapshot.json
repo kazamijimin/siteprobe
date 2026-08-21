@@ -1,0 +1,344 @@
+{
+  "id": "8fba192f-40d1-4139-940e-6a37bc8e5c08",
+  "prevId": "595dd3e1-3493-4889-af9f-94bf191aa41d",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.accessibility_evaluations": {
+      "name": "accessibility_evaluations",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "scanner_run_id": {
+          "name": "scanner_run_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'controlled-scanner'"
+        },
+        "schema_version": {
+          "name": "schema_version",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "evaluator_version": {
+          "name": "evaluator_version",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "engine": {
+          "name": "engine",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "engine_version": {
+          "name": "engine_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "requested_url": {
+          "name": "requested_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "final_url": {
+          "name": "final_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "scanned_at": {
+          "name": "scanned_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "evaluation_json": {
+          "name": "evaluation_json",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "accessibility_evaluations_scanner_run_version_engine_unique": {
+          "name": "accessibility_evaluations_scanner_run_version_engine_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "scanner_run_id",
+            "evaluator_version",
+            "engine_version"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "accessibility_evaluations_source_check": {
+          "name": "accessibility_evaluations_source_check",
+          "value": "\"accessibility_evaluations\".\"source\" = 'controlled-scanner'"
+        },
+        "accessibility_evaluations_engine_check": {
+          "name": "accessibility_evaluations_engine_check",
+          "value": "\"accessibility_evaluations\".\"engine\" = 'axe-core'"
+        },
+        "accessibility_evaluations_schema_version_check": {
+          "name": "accessibility_evaluations_schema_version_check",
+          "value": "\"accessibility_evaluations\".\"schema_version\" > 0"
+        },
+        "accessibility_evaluations_evaluator_version_check": {
+          "name": "accessibility_evaluations_evaluator_version_check",
+          "value": "\"accessibility_evaluations\".\"evaluator_version\" > 0"
+        },
+        "accessibility_evaluations_engine_version_length_check": {
+          "name": "accessibility_evaluations_engine_version_length_check",
+          "value": "char_length(\"accessibility_evaluations\".\"engine_version\") <= 32"
+        },
+        "accessibility_evaluations_requested_url_length_check": {
+          "name": "accessibility_evaluations_requested_url_length_check",
+          "value": "char_length(\"accessibility_evaluations\".\"requested_url\") <= 2048"
+        },
+        "accessibility_evaluations_final_url_length_check": {
+          "name": "accessibility_evaluations_final_url_length_check",
+          "value": "\"accessibility_evaluations\".\"final_url\" is null or char_length(\"accessibility_evaluations\".\"final_url\") <= 2048"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.qa_evaluations": {
+      "name": "qa_evaluations",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "scanner_run_id": {
+          "name": "scanner_run_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'controlled-scanner'"
+        },
+        "schema_version": {
+          "name": "schema_version",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "evaluator_version": {
+          "name": "evaluator_version",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "requested_url": {
+          "name": "requested_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "final_url": {
+          "name": "final_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "scanned_at": {
+          "name": "scanned_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "evaluation_json": {
+          "name": "evaluation_json",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "qa_evaluations_scanner_run_evaluator_unique": {
+          "name": "qa_evaluations_scanner_run_evaluator_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "scanner_run_id",
+            "evaluator_version"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "qa_evaluations_source_check": {
+          "name": "qa_evaluations_source_check",
+          "value": "\"qa_evaluations\".\"source\" = 'controlled-scanner'"
+        },
+        "qa_evaluations_schema_version_check": {
+          "name": "qa_evaluations_schema_version_check",
+          "value": "\"qa_evaluations\".\"schema_version\" > 0"
+        },
+        "qa_evaluations_evaluator_version_check": {
+          "name": "qa_evaluations_evaluator_version_check",
+          "value": "\"qa_evaluations\".\"evaluator_version\" > 0"
+        },
+        "qa_evaluations_requested_url_length_check": {
+          "name": "qa_evaluations_requested_url_length_check",
+          "value": "char_length(\"qa_evaluations\".\"requested_url\") <= 2048"
+        },
+        "qa_evaluations_final_url_length_check": {
+          "name": "qa_evaluations_final_url_length_check",
+          "value": "\"qa_evaluations\".\"final_url\" is null or char_length(\"qa_evaluations\".\"final_url\") <= 2048"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.scans": {
+      "name": "scans",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "requested_url": {
+          "name": "requested_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "normalized_url": {
+          "name": "normalized_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "overall_score": {
+          "name": "overall_score",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "critical_count": {
+          "name": "critical_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "warning_count": {
+          "name": "warning_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "passed_count": {
+          "name": "passed_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "scans_status_check": {
+          "name": "scans_status_check",
+          "value": "\"scans\".\"status\" in ('queued', 'running', 'completed', 'failed')"
+        },
+        "scans_score_check": {
+          "name": "scans_score_check",
+          "value": "\"scans\".\"overall_score\" is null or (\"scans\".\"overall_score\" >= 0 and \"scans\".\"overall_score\" <= 100)"
+        },
+        "scans_critical_count_check": {
+          "name": "scans_critical_count_check",
+          "value": "\"scans\".\"critical_count\" >= 0"
+        },
+        "scans_warning_count_check": {
+          "name": "scans_warning_count_check",
+          "value": "\"scans\".\"warning_count\" >= 0"
+        },
+        "scans_passed_count_check": {
+          "name": "scans_passed_count_check",
+          "value": "\"scans\".\"passed_count\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

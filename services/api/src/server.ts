@@ -3,6 +3,7 @@ import { loadConfig } from "./config.js";
 import { createDatabase } from "./db/client.js";
 import { PostgresScanRepository } from "./repository.js";
 import { PostgresQaEvaluationRepository } from "./evaluations/repository.js";
+import { PostgresAccessibilityEvaluationRepository } from "./accessibility-evaluations/repository.js";
 
 let config;
 try {
@@ -19,6 +20,7 @@ const app = buildApp({
   qaEvaluationRepository: new PostgresQaEvaluationRepository(connection.db),
   qaEvaluationInternalToken: config.qaEvaluationInternalToken,
   qaEvaluationPublicReadEnabled: config.qaEvaluationPublicReadEnabled,
+  accessibilityEvaluationRepository: new PostgresAccessibilityEvaluationRepository(connection.db),
 });
 
 let shuttingDown = false;
