@@ -22,6 +22,7 @@ const environmentSchema = z.object({
     .refine((value) => value.startsWith("http://") || value.startsWith("https://"), "SCANNER_URL must use HTTP or HTTPS")
     .default("http://127.0.0.1:3100"),
   SCANNER_INTERNAL_TOKEN: z.string().trim().optional(),
+  QA_EVALUATION_INTERNAL_TOKEN: z.string().trim().optional(),
 });
 
 export type ApiConfig = {
@@ -30,6 +31,7 @@ export type ApiConfig = {
   databaseUrl: string;
   scannerUrl: string;
   scannerInternalToken: string | undefined;
+  qaEvaluationInternalToken: string | undefined;
 };
 
 export function loadConfig(environment: NodeJS.ProcessEnv = process.env): ApiConfig {
@@ -40,5 +42,6 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): ApiCon
     databaseUrl: parsed.DATABASE_URL,
     scannerUrl: parsed.SCANNER_URL,
     scannerInternalToken: parsed.SCANNER_INTERNAL_TOKEN || undefined,
+    qaEvaluationInternalToken: parsed.QA_EVALUATION_INTERNAL_TOKEN || undefined,
   };
 }

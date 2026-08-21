@@ -2,6 +2,7 @@ import { buildApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { createDatabase } from "./db/client.js";
 import { PostgresScanRepository } from "./repository.js";
+import { PostgresQaEvaluationRepository } from "./evaluations/repository.js";
 
 let config;
 try {
@@ -15,6 +16,8 @@ const connection = createDatabase(config.databaseUrl);
 const app = buildApp({
   logger: true,
   repository: new PostgresScanRepository(connection.db),
+  qaEvaluationRepository: new PostgresQaEvaluationRepository(connection.db),
+  qaEvaluationInternalToken: config.qaEvaluationInternalToken,
 });
 
 let shuttingDown = false;
