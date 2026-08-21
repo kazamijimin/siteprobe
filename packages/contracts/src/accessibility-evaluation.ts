@@ -185,6 +185,43 @@ export const accessibilityEvaluationResponseSchema = z.object({
   createdAt: z.string().datetime({ offset: true }),
 }).strict().superRefine(assertMetadataConsistency);
 
+export const accessibilityEvaluationIdParamsSchema = z.object({ id: z.string().uuid() }).strict();
+
+const publicAccessibilityEvaluationSchema = accessibilityEvaluationSchema.superRefine((evaluation, ctx) => {
+  if (evaluation.status !== "completed") return;
+  evaluation.violations.forEach((rule, ruleIndex) => {
+    if (/<[a-z!/][^>]*>/i.test(rule.help)) ctx.addIssue({ code: "custom", path: ["violations", ruleIndex, "help"], message: "Raw HTML is not allowed" });
+    rule.samples.forEach((sample, sampleIndex) => {
+      if (sample.failureSummary && /<[a-z!/][^>]*>/i.test(sample.failureSummary)) ctx.addIssue({ code: "custom", path: ["violations", ruleIndex, "samples", sampleIndex, "failureSummary"], message: "Raw HTML is not allowed" });
+    });
+  });
+  evaluation.needsReview.forEach((rule, ruleIndex) => {
+    if (/<[a-z!/][^>]*>/i.test(rule.help)) ctx.addIssue({ code: "custom", path: ["needsReview", ruleIndex, "help"], message: "Raw HTML is not allowed" });
+    rule.samples.forEach((sample, sampleIndex) => {
+      if (sample.failureSummary && /<[a-z!/][^>]*>/i.test(sample.failureSummary)) ctx.addIssue({ code: "custom", path: ["needsReview", ruleIndex, "samples", sampleIndex, "failureSummary"], message: "Raw HTML is not allowed" });
+    });
+  });
+});
+
+/**
+ * Read-only projection for the development accessibility detail screen.
+ * Internal scanner-run identifiers and raw axe metadata are intentionally not
+ * part of this contract; the engine information is grouped as presentation
+ * metadata while the normalized evaluation remains unchanged.
+ */
+export const accessibilityEvaluationPublicResponseSchema = z.object({
+  id: z.string().uuid(),
+  source: z.literal("controlled-scanner"),
+  schemaVersion: accessibilitySchemaVersionSchema,
+  evaluatorVersion: accessibilityEvaluatorVersionSchema,
+  requestedUrl: z.string().min(1).max(2048),
+  finalUrl: z.string().max(2048).nullable(),
+  scannedAt: z.string().datetime({ offset: true }),
+  createdAt: z.string().datetime({ offset: true }),
+  engine: accessibilityEngineMetadataSchema,
+  evaluation: publicAccessibilityEvaluationSchema,
+}).strict().superRefine(assertMetadataConsistency);
+
 export type AccessibilityImpact = z.infer<typeof accessibilityImpactSchema>;
 export type AccessibilitySample = z.infer<typeof accessibilitySampleSchema>;
 export type AccessibilityRuleResult = z.infer<typeof accessibilityRuleResultSchema>;
@@ -195,4 +232,6 @@ export type AccessibilityEvaluation = z.infer<typeof accessibilityEvaluationSche
 export type AccessibilityEngineMetadata = z.infer<typeof accessibilityEngineMetadataSchema>;
 export type AccessibilityEvaluationCreate = z.infer<typeof accessibilityEvaluationCreateSchema>;
 export type AccessibilityEvaluationResponse = z.infer<typeof accessibilityEvaluationResponseSchema>;
+export type AccessibilityEvaluationPublicResponse = z.infer<typeof accessibilityEvaluationPublicResponseSchema>;
+export type AccessibilityEvaluationIdParams = z.infer<typeof accessibilityEvaluationIdParamsSchema>;
 export type AccessibilityFailureCode = z.infer<typeof accessibilityFailureCodeSchema>;

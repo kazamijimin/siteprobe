@@ -24,6 +24,7 @@ const environmentSchema = z.object({
   SCANNER_INTERNAL_TOKEN: z.string().trim().optional(),
   QA_EVALUATION_INTERNAL_TOKEN: z.string().trim().optional(),
   QA_EVALUATION_PUBLIC_READ_ENABLED: z.enum(["true", "false"]).default("false").transform((value) => value === "true"),
+  ACCESSIBILITY_EVALUATION_PUBLIC_READ_ENABLED: z.enum(["true", "false"]).default("false").transform((value) => value === "true"),
 });
 
 export type ApiConfig = {
@@ -34,6 +35,7 @@ export type ApiConfig = {
   scannerInternalToken: string | undefined;
   qaEvaluationInternalToken: string | undefined;
   qaEvaluationPublicReadEnabled: boolean;
+  accessibilityEvaluationPublicReadEnabled: boolean;
 };
 
 export function loadConfig(environment: NodeJS.ProcessEnv = process.env): ApiConfig {
@@ -46,5 +48,6 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): ApiCon
     scannerInternalToken: parsed.SCANNER_INTERNAL_TOKEN || undefined,
     qaEvaluationInternalToken: parsed.QA_EVALUATION_INTERNAL_TOKEN || undefined,
     qaEvaluationPublicReadEnabled: parsed.QA_EVALUATION_PUBLIC_READ_ENABLED,
+    accessibilityEvaluationPublicReadEnabled: parsed.ACCESSIBILITY_EVALUATION_PUBLIC_READ_ENABLED,
   };
 }

@@ -6,6 +6,7 @@ This Expo SDK 57 application is the SiteProbe mobile client.
 
 - /qa-evaluations - development-gated controlled QA evaluation index
 - /qa-evaluations/[id] - development-gated controlled QA evaluation detail
+- /accessibility-evaluations/[id] - development-gated controlled accessibility evaluation detail
 
 - `/` — URL entry and fake scan creation
 - `/scans` — persisted synthetic scan history
@@ -24,6 +25,20 @@ default and is intended only for controlled development with
 QA_EVALUATION_PUBLIC_READ_ENABLED=true configured in the API environment. The
 internal QA evaluation token remains server-side only and must never be placed
 in this app or an EXPO_PUBLIC_* variable.
+
+Product Phase P9 adds the read-only Controlled Accessibility Evaluation detail
+screen. Enable `ACCESSIBILITY_EVALUATION_PUBLIC_READ_ENABLED=true` in the API
+environment only, then open `/accessibility-evaluations/<evaluation-id>` using an
+ID produced by the controlled P8 workflow. The screen displays normalized
+violations, needs-review checks, impact/node summaries, truncation notices,
+engine metadata, targets, and timestamps as plain React Native text. It never
+runs axe, starts a scanner, requests the target URL, or opens help URLs.
+
+Automated accessibility checks are not equivalent to full WCAG conformance
+testing. Accessibility violations indicate automated findings; they do not
+establish that a page is WCAG compliant, certified, or fully accessible. The
+public adapter is disabled by default and intended only for controlled
+development. Phase H remains deferred pending verified isolation.
 
 ## Development
 

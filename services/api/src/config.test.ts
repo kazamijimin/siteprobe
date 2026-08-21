@@ -18,6 +18,7 @@ describe("API configuration", () => {
       scannerInternalToken: undefined,
       qaEvaluationInternalToken: undefined,
       qaEvaluationPublicReadEnabled: false,
+      accessibilityEvaluationPublicReadEnabled: false,
     });
   });
 
@@ -31,5 +32,12 @@ describe("API configuration", () => {
     expect(loadConfig({ DATABASE_URL: databaseUrl, QA_EVALUATION_PUBLIC_READ_ENABLED: "false" }).qaEvaluationPublicReadEnabled).toBe(false);
     expect(loadConfig({ DATABASE_URL: databaseUrl, QA_EVALUATION_PUBLIC_READ_ENABLED: "true" }).qaEvaluationPublicReadEnabled).toBe(true);
     expect(() => loadConfig({ DATABASE_URL: databaseUrl, QA_EVALUATION_PUBLIC_READ_ENABLED: "TRUE" })).toThrow();
+  });
+
+  it("defaults the accessibility public read adapter off and accepts explicit booleans", () => {
+    const databaseUrl = "postgresql://siteprobe@127.0.0.1:5432/siteprobe";
+    expect(loadConfig({ DATABASE_URL: databaseUrl }).accessibilityEvaluationPublicReadEnabled).toBe(false);
+    expect(loadConfig({ DATABASE_URL: databaseUrl, ACCESSIBILITY_EVALUATION_PUBLIC_READ_ENABLED: "true" }).accessibilityEvaluationPublicReadEnabled).toBe(true);
+    expect(() => loadConfig({ DATABASE_URL: databaseUrl, ACCESSIBILITY_EVALUATION_PUBLIC_READ_ENABLED: "TRUE" })).toThrow();
   });
 });

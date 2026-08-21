@@ -133,3 +133,18 @@ and have no public or mobile adapter. Rows are immutable and idempotent on
 `200`, conflicts return `409`, and corrupt JSONB is surfaced as a persistence
 error. Accessibility ingestion occurs only after the core P3 evaluator has been
 persisted by the developer-only P8 workflow.
+
+Product Phase P9 adds a separate development-only read adapter:
+
+```env
+ACCESSIBILITY_EVALUATION_PUBLIC_READ_ENABLED=false
+```
+
+When explicitly enabled, `GET /api/accessibility-evaluations/:id` returns a
+strict presentation projection of one already-persisted evaluation with
+`Cache-Control: no-store`. When disabled or unset it returns `404` before
+repository access. The route performs no scanner, axe, target-network, or
+database-write operation and exposes no `scannerRunId`, raw axe fields, HTML,
+help URLs, score, or compliance claim. Viewing an accessibility evaluation does
+not run axe or start a scanner. Automated accessibility checks are not
+equivalent to full WCAG conformance testing.

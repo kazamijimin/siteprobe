@@ -1,0 +1,40 @@
+import type {
+  AccessibilityEvaluation,
+  AccessibilityImpact,
+  AccessibilityRuleResult,
+  AccessibilitySummary,
+} from '@siteprobe/contracts';
+
+export function formatAccessibilityTimestamp(value: string): string {
+  return new Date(value).toLocaleString(undefined, {
+    year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit',
+  });
+}
+
+export function formatAccessibilityImpact(impact: AccessibilityImpact): string {
+  return impact === null ? 'Unknown impact' : `${impact.charAt(0).toUpperCase()}${impact.slice(1)}`;
+}
+
+export function formatAccessibilitySummary(summary: AccessibilitySummary): string {
+  return `Violation rules ${summary.violationRules} · Affected nodes ${summary.violationNodes} · Needs-review rules ${summary.needsReviewRules}`;
+}
+
+export function accessibilityStatusMessage(evaluation: AccessibilityEvaluation): string {
+  if (evaluation.status === 'notApplicable') return 'Accessibility analysis was not performed because navigation failed.';
+  return evaluation.summary.violationRules === 0
+    ? 'No automated accessibility violations were detected in this controlled check.'
+    : 'Automated accessibility findings are shown below.';
+}
+
+export function truncationMessage(evaluation: Extract<AccessibilityEvaluation, { status: 'completed' }>): string | null {
+  return evaluation.violationsTruncated || evaluation.needsReviewTruncated || evaluation.countsCapped || evaluation.payloadTruncated
+    ? 'Some diagnostic details were truncated to keep this evaluation bounded.'
+    : null;
+}
+
+export function ruleSamplesText(rule: AccessibilityRuleResult): string {
+  return rule.samples.map((sample) => [
+    `Target: ${sample.target.length > 0 ? sample.target.join(' >>> ') : 'Not available'}`,
+    `Failure: ${sample.failureSummary ?? 'Not available'}`,
+  ].join('\n')).join('\n\n');
+}

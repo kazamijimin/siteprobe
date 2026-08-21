@@ -37,6 +37,7 @@ export type BuildAppOptions = {
   qaEvaluationInternalToken?: string;
   qaEvaluationPublicReadEnabled?: boolean;
   accessibilityEvaluationRepository?: AccessibilityEvaluationRepository;
+  accessibilityEvaluationPublicReadEnabled?: boolean;
 };
 
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
@@ -105,6 +106,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   app.register(accessibilityEvaluationRoutes({
     repository: options.accessibilityEvaluationRepository ?? new InMemoryAccessibilityEvaluationRepository(),
     token: options.qaEvaluationInternalToken,
+    publicReadEnabled: options.accessibilityEvaluationPublicReadEnabled ?? false,
   }));
   return app;
 }

@@ -21,6 +21,7 @@ const app = buildApp({
   qaEvaluationInternalToken: config.qaEvaluationInternalToken,
   qaEvaluationPublicReadEnabled: config.qaEvaluationPublicReadEnabled,
   accessibilityEvaluationRepository: new PostgresAccessibilityEvaluationRepository(connection.db),
+  accessibilityEvaluationPublicReadEnabled: config.accessibilityEvaluationPublicReadEnabled,
 });
 
 let shuttingDown = false;

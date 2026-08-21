@@ -2,9 +2,11 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import type { FastifyPluginAsync } from "fastify";
 import {
   accessibilityEvaluationCreateSchema,
+  accessibilityEvaluationPublicResponseSchema,
+  accessibilityEvaluationIdParamsSchema,
   accessibilityEvaluationResponseSchema,
-  qaEvaluationIdParamsSchema,
   type AccessibilityEvaluationCreate,
+  type AccessibilityEvaluationResponse,
 } from "@siteprobe/contracts";
 import {
   AccessibilityEvaluationConflictError,
@@ -17,6 +19,7 @@ const ACCESSIBILITY_BODY_LIMIT_BYTES = 64 * 1024;
 type AccessibilityRouteOptions = {
   repository: AccessibilityEvaluationRepository;
   token: string | undefined;
+  publicReadEnabled: boolean;
 };
 
 function errorEnvelope(code: string, message: string, requestId: string, details?: Array<{ path: string; message: string }>) {
@@ -85,7 +88,7 @@ export const accessibilityEvaluationRoutes = (options: AccessibilityRouteOptions
 
   app.get("/internal/accessibility-evaluations/:id", async (request, reply) => {
     if (!authorize(request, reply, options.token)) return;
-    const params = qaEvaluationIdParamsSchema.safeParse(request.params);
+    const params = accessibilityEvaluationIdParamsSchema.safeParse(request.params);
     if (!params.success) {
       return reply.code(400).send(errorEnvelope("VALIDATION_ERROR", "Request validation failed", request.id, [
         { path: "id", message: "id must be a valid UUID" },
@@ -95,4 +98,47 @@ export const accessibilityEvaluationRoutes = (options: AccessibilityRouteOptions
     if (!evaluation) return reply.code(404).send(errorEnvelope("NOT_FOUND", "Accessibility evaluation not found", request.id));
     return reply.code(200).send(accessibilityEvaluationResponseSchema.parse(evaluation));
   });
+
+  app.get("/api/accessibility-evaluations/:id", async (request, reply) => {
+    reply.header("Cache-Control", "no-store");
+    if (!options.publicReadEnabled) {
+      return reply.code(404).send(errorEnvelope("NOT_FOUND", "Accessibility evaluation not found", request.id));
+    }
+
+    const params = accessibilityEvaluationIdParamsSchema.safeParse(request.params);
+    if (!params.success) {
+      return reply.code(400).send(errorEnvelope("VALIDATION_ERROR", "Request validation failed", request.id, [
+        { path: "id", message: "id must be a valid UUID" },
+      ]));
+    }
+
+    const evaluation = await options.repository.findById(params.data.id);
+    if (!evaluation) return reply.code(404).send(errorEnvelope("NOT_FOUND", "Accessibility evaluation not found", request.id));
+    return reply.code(200).send(projectPublicAccessibilityEvaluation(evaluation));
+  });
 };
+
+function projectPublicAccessibilityEvaluation(evaluation: AccessibilityEvaluationResponse) {
+  const projected = accessibilityEvaluationPublicResponseSchema.safeParse({
+    id: evaluation.id,
+    source: evaluation.source,
+    schemaVersion: evaluation.schemaVersion,
+    evaluatorVersion: evaluation.evaluatorVersion,
+    requestedUrl: evaluation.requestedUrl,
+    finalUrl: evaluation.finalUrl,
+    scannedAt: evaluation.scannedAt,
+    createdAt: evaluation.createdAt,
+    engine: {
+      engine: evaluation.engine,
+      engineVersion: evaluation.engineVersion,
+      adapter: evaluation.adapter,
+      adapterVersion: evaluation.adapterVersion,
+      rulesetTags: evaluation.rulesetTags,
+    },
+    evaluation: evaluation.evaluation,
+  });
+  if (!projected.success) {
+    throw new AccessibilityEvaluationPersistenceCorruptionError("Stored accessibility evaluation failed public contract validation", { cause: projected.error });
+  }
+  return projected.data;
+}
