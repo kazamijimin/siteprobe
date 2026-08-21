@@ -382,3 +382,10 @@ Phase G.5 repository-side deployment definitions live under
 default-deny policy, controlled DNS, mandatory proxy, and canary verification
 scripts. They are not applied to this Windows machine; isolated readiness stays
 `503` until the real VM produces trusted evidence.
+
+Product Phase P12 adds controlled SEO Evaluation v1. Use `pnpm controlled:seo
+--list` and then a catalog ID such as `seo-clean`. P12 inspects only the
+already-loaded controlled page, persists core QA before SEO through authenticated
+internal routes, and creates no public SEO API or mobile UI. It stores nine
+bounded deterministic findings, never computes a score or grade, and preserves
+the zero-new-request/page/navigation invariant. Phase H remains deferred.

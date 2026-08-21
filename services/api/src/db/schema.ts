@@ -10,7 +10,7 @@ import {
   unique,
   uuid,
 } from "drizzle-orm/pg-core";
-import type { AccessibilityEvaluationCreate, ControlledQaEvaluationCreate, ScanStatus } from "@siteprobe/contracts";
+import type { AccessibilityEvaluationCreate, ControlledQaEvaluationCreate, ScanStatus, SeoEvaluationCreate } from "@siteprobe/contracts";
 
 export const scans = pgTable(
   "scans",
@@ -121,3 +121,30 @@ export const accessibilityEvaluations = pgTable(
 
 export type AccessibilityEvaluationRow = typeof accessibilityEvaluations.$inferSelect;
 export type NewAccessibilityEvaluationRow = typeof accessibilityEvaluations.$inferInsert;
+
+export const seoEvaluations = pgTable(
+  "seo_evaluations",
+  {
+    id: uuid("id").primaryKey(),
+    scannerRunId: uuid("scanner_run_id").notNull(),
+    source: text("source").notNull().default("controlled-scanner"),
+    schemaVersion: smallint("schema_version").notNull(),
+    evaluatorVersion: smallint("evaluator_version").notNull(),
+    requestedUrl: text("requested_url").notNull(),
+    finalUrl: text("final_url"),
+    scannedAt: timestamp("scanned_at", { withTimezone: true, mode: "date" }).notNull(),
+    evaluationJson: jsonb("evaluation_json").$type<SeoEvaluationCreate["evaluation"]>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => ({
+    scannerRunVersionUnique: unique("seo_evaluations_scanner_run_evaluator_unique").on(table.scannerRunId, table.evaluatorVersion),
+    sourceCheck: check("seo_evaluations_source_check", sql`${table.source} = 'controlled-scanner'`),
+    schemaVersionCheck: check("seo_evaluations_schema_version_check", sql`${table.schemaVersion} > 0`),
+    evaluatorVersionCheck: check("seo_evaluations_evaluator_version_check", sql`${table.evaluatorVersion} > 0`),
+    requestedUrlLengthCheck: check("seo_evaluations_requested_url_length_check", sql`char_length(${table.requestedUrl}) <= 2048`),
+    finalUrlLengthCheck: check("seo_evaluations_final_url_length_check", sql`${table.finalUrl} is null or char_length(${table.finalUrl}) <= 2048`),
+  }),
+);
+
+export type SeoEvaluationRow = typeof seoEvaluations.$inferSelect;
+export type NewSeoEvaluationRow = typeof seoEvaluations.$inferInsert;

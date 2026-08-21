@@ -7,7 +7,7 @@
     "db:check": "drizzle-kit check --config=drizzle.config.ts",
     "db:generate": "drizzle-kit generate --config=drizzle.config.ts",
     "db:migrate": "node --env-file-if-exists=.env --import tsx/esm src/db/migrate.ts",
-    "db:test": "vitest run --no-file-parallelism src/db/repository.test.ts src/db/qa-evaluation-repository.test.ts src/db/accessibility-evaluation-repository.test.ts src/db/controlled-fixture-workflow.test.ts src/db/controlled-accessibility-workflow.test.ts",
+    "db:test": "vitest run --no-file-parallelism src/db/repository.test.ts src/db/qa-evaluation-repository.test.ts src/db/accessibility-evaluation-repository.test.ts src/db/seo-evaluation-repository.test.ts src/db/controlled-fixture-workflow.test.ts src/db/controlled-accessibility-workflow.test.ts",
     "dev": "node --env-file-if-exists=.env --import tsx/esm --watch src/server.ts",
     "start": "node --env-file-if-exists=.env --import tsx/esm src/server.ts",
     "pretypecheck": "pnpm --filter @siteprobe/contracts build",

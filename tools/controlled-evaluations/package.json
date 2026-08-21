@@ -18,11 +18,17 @@
       "types": "./src/accessibility-cli.ts",
       "import": "./src/accessibility-cli.ts",
       "default": "./src/accessibility-cli.ts"
+    },
+    "./seo-cli": {
+      "types": "./src/seo-cli.ts",
+      "import": "./src/seo-cli.ts",
+      "default": "./src/seo-cli.ts"
     }
   },
   "scripts": {
     "fixture": "node --import tsx/esm src/cli.ts",
     "accessibility": "node --import tsx/esm src/accessibility-cli.ts",
+    "seo": "node --import tsx/esm src/seo-cli.ts",
     "pretypecheck": "pnpm --filter @siteprobe/contracts build",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "pretest": "pnpm --filter @siteprobe/contracts build",

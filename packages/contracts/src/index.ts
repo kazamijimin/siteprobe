@@ -94,6 +94,38 @@ export {
   accessibilityStatusSchema,
   accessibilityEvaluatorVersionSchema,
 } from "./accessibility-evaluation.js";
+export {
+  SEO_EVALUATOR_VERSION,
+  SEO_MAX_SERIALIZED_BYTES,
+  SEO_SCHEMA_VERSION,
+  seoCompletedEvaluationSchema,
+  seoEvaluationCreateSchema,
+  seoEvaluationIdParamsSchema,
+  seoEvaluationResponseSchema,
+  seoEvaluationSchema,
+  seoEvaluationStatusSchema,
+  seoEvidenceSchema,
+  seoFindingSchema,
+  seoFindingStatusSchema,
+  seoNotApplicableEvaluationSchema,
+  seoNotApplicableReasonSchema,
+  seoRuleIdSchema,
+  seoSchemaVersionSchema,
+  seoEvaluatorVersionSchema,
+  seoSeveritySchema,
+  seoEvaluationSummarySchema,
+} from "./seo-evaluation.js";
+export type {
+  SeoCompletedEvaluation,
+  SeoEvaluation,
+  SeoEvaluationCreate,
+  SeoEvaluationResponse,
+  SeoEvaluationSummary,
+  SeoEvidence,
+  SeoFinding,
+  SeoNotApplicableEvaluation,
+  SeoRuleId,
+} from "./seo-evaluation.js";
 export type {
   AccessibilityCompletedEvaluation,
   AccessibilityEngineMetadata,

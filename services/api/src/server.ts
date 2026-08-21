@@ -4,6 +4,7 @@ import { createDatabase } from "./db/client.js";
 import { PostgresScanRepository } from "./repository.js";
 import { PostgresQaEvaluationRepository } from "./evaluations/repository.js";
 import { PostgresAccessibilityEvaluationRepository } from "./accessibility-evaluations/repository.js";
+import { PostgresSeoEvaluationRepository } from "./seo-evaluations/repository.js";
 
 let config;
 try {
@@ -22,6 +23,7 @@ const app = buildApp({
   qaEvaluationPublicReadEnabled: config.qaEvaluationPublicReadEnabled,
   accessibilityEvaluationRepository: new PostgresAccessibilityEvaluationRepository(connection.db),
   accessibilityEvaluationPublicReadEnabled: config.accessibilityEvaluationPublicReadEnabled,
+  seoEvaluationRepository: new PostgresSeoEvaluationRepository(connection.db),
 });
 
 let shuttingDown = false;

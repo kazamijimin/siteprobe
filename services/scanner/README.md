@@ -124,3 +124,14 @@ Violations and needs-review entries are deterministically ordered, selector and
 failure text are clipped, samples are capped, and the serialized payload is
 limited to 48 KiB. The accessibility engine has no database or API credentials.
 The separate developer tool performs authenticated persistence through the API.
+
+## Product Phase P12 SEO inspection
+
+The scanner also exposes a separate controlled SEO fixture seam. The six
+allowlisted IDs are `seo-clean`, `seo-missing-metadata`, `seo-title-length`,
+`seo-multiple-h1`, `seo-missing-alt`, and `seo-navigation-timeout`. The runner
+uses one existing Playwright page and bounded `document` inspection only; it
+does not navigate, crawl, fetch metadata endpoints, open pages, or add target
+requests. Navigation failure produces nine `notApplicable` rules without DOM
+inspection. SEO collection has no database or API credentials and is persisted
+only by the separate controlled-evaluations tool.

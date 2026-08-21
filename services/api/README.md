@@ -115,6 +115,25 @@ token or database credentials. P7 uses in-process `fixture.invalid` route
 fulfillment and does not use the private scanner worker. Phase H remains
 deferred pending verified isolation.
 
+## Product Phase P12 controlled SEO evaluation
+
+P12 adds a separate developer-only SEO workflow. Run only the allowlisted
+fixtures with `pnpm controlled:seo --list` or, for example,
+`pnpm controlled:seo seo-clean`. The workflow performs one controlled browser
+navigation, inspects the already-loaded DOM, persists core QA first, then
+persists the SEO Evaluation v1 through:
+
+```text
+POST /internal/seo-evaluations
+GET  /internal/seo-evaluations/:id
+Authorization: Bearer <QA_EVALUATION_INTERNAL_TOKEN>
+```
+
+There is no public SEO route, mobile adapter, score, grade, crawl, robots.txt
+request, sitemap request, canonical follow, or arbitrary URL input. SEO rows
+are immutable and idempotent on `(scannerRunId, evaluatorVersion)` and live in
+the independent `seo_evaluations` table created by the forward migration.
+
 ## Product Phase P11 evaluation cross-links
 
 P11 extends the existing public detail responses with nullable related IDs:
