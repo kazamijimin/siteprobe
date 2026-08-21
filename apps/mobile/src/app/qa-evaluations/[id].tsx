@@ -247,6 +247,16 @@ export default function QaEvaluationDetailScreen() {
             <DetailRow label="Schema" value={`v${evaluation.schemaVersion}`} />
           </View>
 
+          {evaluation.relatedAccessibilityEvaluationId ? (
+            <Pressable
+              accessibilityLabel="View Accessibility Evaluation"
+              accessibilityRole="button"
+              onPress={() => router.push({ pathname: '/accessibility-evaluations/[id]', params: { id: evaluation.relatedAccessibilityEvaluationId! } })}
+              style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}>
+              <Text style={styles.secondaryButtonText}>View Accessibility Evaluation</Text>
+            </Pressable>
+          ) : null}
+
           <Pressable
             accessibilityLabel="Back to Home"
             accessibilityRole="button"

@@ -72,3 +72,6 @@ export {
   type ControlledFixtureId,
 } from "./controlled-fixtures/index.js";
 export { evaluateScannerResult } from "./evaluation/evaluate-scanner-result.js";
+export { seoFixtureIdSchema, getSeoFixtureDefinition, listSeoFixtureIds, type SeoFixtureDefinition, type SeoFixtureId } from "./controlled-fixtures/seo-catalog.js";
+export { runControlledSeoFixture, type ControlledSeoRunResult } from "./controlled-fixtures/run-controlled-seo-fixture.js";
+export { collectSeo, evaluateSeo, type SeoDomSnapshot } from "./seo/index.js";

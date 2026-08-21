@@ -2,9 +2,13 @@
 
 SiteProbe is a mobile-first website QA platform. The long-term product will submit website targets from an Expo application to a backend that runs isolated browser checks.
 
-## Current status: Product Phase P8
+## Current status: Product Phase P11
+
+- Product Phase P10 — Controlled accessibility evaluation index
+- Product Phase P11 — Controlled evaluation cross-linking
 
 - Product Phase P8 — Controlled accessibility evaluation with axe-core
+- Product Phase P9 — Controlled accessibility evaluation detail experience
 
 - Product Phase P7 — Controlled fixture generation and authenticated ingestion
 
@@ -50,6 +54,31 @@ the four `accessibility-*` fixture IDs, runs axe on the already-loaded fixture
 page with no additional requests or pages, bounds and deterministically normalizes
 results, persists a separate version-1 accessibility snapshot through the
 authenticated internal API, and leaves public scans and mobile unchanged.
+
+Product Phase P9 adds a development-gated, read-only accessibility detail
+projection at `/api/accessibility-evaluations/:id` and the Expo route
+`/accessibility-evaluations/[id]`. Viewing an evaluation reads one persisted
+snapshot only; it never runs axe, starts a scanner, requests the target URL, or
+opens help URLs. `ACCESSIBILITY_EVALUATION_PUBLIC_READ_ENABLED` defaults to
+`false` and is server-side only. Automated accessibility checks are not
+equivalent to full WCAG conformance testing and do not establish that a page is
+WCAG compliant, certified, or fully accessible.
+
+Product Phase P10 adds the development-gated, read-only accessibility
+evaluation index at `/api/accessibility-evaluations` and
+`/accessibility-evaluations`. It lists only persisted P8 snapshots with
+bounded opaque-cursor pagination and compact summaries. Viewing the index
+never runs axe, launches Playwright, starts a scanner, creates an evaluation,
+requests a target URL, or writes to PostgreSQL. It remains separate from
+synthetic public scan history. Phase H remains deferred pending verified
+isolation.
+
+Product Phase P11 adds read-only cross-links between the corresponding QA and
+accessibility detail screens. The API resolves the shared scanner run
+internally and exposes only the related public evaluation ID, subject to the
+related domain's public-read gate. `scannerRunId` remains private, and missing
+pairs are represented as `null`. No new route, persistence entity, migration,
+scanner behavior, or Phase H integration is added.
 
 Phase D replaces the API's in-memory repository with PostgreSQL persistence through Drizzle ORM and versioned SQL migrations. Phase E adds the scanner safety boundary: URL policy, DNS/IP classification, redirect validation, passive request policy, and resource limits. Phase F adds a controlled Chromium engine that reuses those checks and returns internal observations. Phase G adds a loopback-only authenticated scanner worker, a fail-closed isolation gate, and an API-side client that is deliberately not used by the public route.
 
@@ -353,3 +382,10 @@ Phase G.5 repository-side deployment definitions live under
 default-deny policy, controlled DNS, mandatory proxy, and canary verification
 scripts. They are not applied to this Windows machine; isolated readiness stays
 `503` until the real VM produces trusted evidence.
+
+Product Phase P12 adds controlled SEO Evaluation v1. Use `pnpm controlled:seo
+--list` and then a catalog ID such as `seo-clean`. P12 inspects only the
+already-loaded controlled page, persists core QA before SEO through authenticated
+internal routes, and creates no public SEO API or mobile UI. It stores nine
+bounded deterministic findings, never computes a score or grade, and preserves
+the zero-new-request/page/navigation invariant. Phase H remains deferred.

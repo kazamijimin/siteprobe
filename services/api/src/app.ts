@@ -5,10 +5,12 @@ import { healthRoutes } from "./routes/health.js";
 import { scanRoutes } from "./routes/scans.js";
 import { qaEvaluationRoutes } from "./routes/qa-evaluations.js";
 import { accessibilityEvaluationRoutes } from "./routes/accessibility-evaluations.js";
+import { seoEvaluationRoutes } from "./routes/seo-evaluations.js";
 import { InMemoryScanRepository, type ScanRepository } from "./repository.js";
 import type { ScannerClient } from "./scanner/client.js";
 import { InMemoryQaEvaluationRepository, type QaEvaluationRepository } from "./evaluations/repository.js";
 import { InMemoryAccessibilityEvaluationRepository, type AccessibilityEvaluationRepository } from "./accessibility-evaluations/repository.js";
+import { InMemorySeoEvaluationRepository, type SeoEvaluationRepository } from "./seo-evaluations/repository.js";
 
 const BODY_LIMIT_BYTES = 16 * 1024;
 
@@ -37,6 +39,8 @@ export type BuildAppOptions = {
   qaEvaluationInternalToken?: string;
   qaEvaluationPublicReadEnabled?: boolean;
   accessibilityEvaluationRepository?: AccessibilityEvaluationRepository;
+  accessibilityEvaluationPublicReadEnabled?: boolean;
+  seoEvaluationRepository?: SeoEvaluationRepository;
 };
 
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
@@ -54,6 +58,9 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   });
   app.removeContentTypeParser("text/plain");
   const repository = options.repository ?? new InMemoryScanRepository();
+  const qaEvaluationRepository = options.qaEvaluationRepository ?? new InMemoryQaEvaluationRepository();
+  const accessibilityEvaluationRepository = options.accessibilityEvaluationRepository ?? new InMemoryAccessibilityEvaluationRepository();
+  const seoEvaluationRepository = options.seoEvaluationRepository ?? new InMemorySeoEvaluationRepository();
 
   app.setErrorHandler((error, request, reply) => {
     const apiError = error as { code?: string; validation?: unknown };
@@ -98,13 +105,19 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   app.register(healthRoutes);
   app.register(scanRoutes(repository));
   app.register(qaEvaluationRoutes({
-    repository: options.qaEvaluationRepository ?? new InMemoryQaEvaluationRepository(),
+    repository: qaEvaluationRepository,
     token: options.qaEvaluationInternalToken,
     publicReadEnabled: options.qaEvaluationPublicReadEnabled ?? false,
+    accessibilityRepository: accessibilityEvaluationRepository,
+    accessibilityPublicReadEnabled: options.accessibilityEvaluationPublicReadEnabled ?? false,
   }));
   app.register(accessibilityEvaluationRoutes({
-    repository: options.accessibilityEvaluationRepository ?? new InMemoryAccessibilityEvaluationRepository(),
+    repository: accessibilityEvaluationRepository,
     token: options.qaEvaluationInternalToken,
+    publicReadEnabled: options.accessibilityEvaluationPublicReadEnabled ?? false,
+    qaRepository: qaEvaluationRepository,
+    qaPublicReadEnabled: options.qaEvaluationPublicReadEnabled ?? false,
   }));
+  app.register(seoEvaluationRoutes({ repository: seoEvaluationRepository, token: options.qaEvaluationInternalToken }));
   return app;
 }

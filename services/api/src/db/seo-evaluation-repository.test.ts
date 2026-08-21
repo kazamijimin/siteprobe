@@ -1,0 +1,20 @@
+import { inArray } from "drizzle-orm";
+import { migrate } from "drizzle-orm/node-postgres/migrator";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { runControlledSeoWorkflow } from "@siteprobe/controlled-evaluations";
+import { createDatabase, type DatabaseConnection } from "./client.js";
+import { seoEvaluations, qaEvaluations } from "./schema.js";
+import { assertSafeTestDatabaseUrl } from "./test-database-guard.js";
+import { buildApp } from "../app.js";
+import { PostgresSeoEvaluationRepository } from "../seo-evaluations/repository.js";
+import { PostgresQaEvaluationRepository } from "../evaluations/repository.js";
+import { seoEvaluationResponseSchema } from "@siteprobe/contracts";
+const databaseUrl = process.env.SITEPROBE_TEST_DATABASE_URL;
+const safeDatabaseUrl = databaseUrl ? (assertSafeTestDatabaseUrl(databaseUrl), databaseUrl) : undefined;
+const describeDatabase = safeDatabaseUrl ? describe : describe.skip;
+describeDatabase("P12 controlled SEO PostgreSQL workflow", () => {
+  let connection: DatabaseConnection; let app: ReturnType<typeof buildApp>; let origin: URL; const seoIds: string[] = []; const qaIds: string[] = [];
+  beforeAll(async () => { connection = createDatabase(safeDatabaseUrl!); await migrate(connection.db, { migrationsFolder: "drizzle" }); app = buildApp({ logger: false, qaEvaluationRepository: new PostgresQaEvaluationRepository(connection.db), qaEvaluationInternalToken: "p12-test-only-token", seoEvaluationRepository: new PostgresSeoEvaluationRepository(connection.db) }); await app.listen({ host: "127.0.0.1", port: 0 }); const address = app.server.address(); if (!address || typeof address === "string") throw new Error("P12 test API did not bind"); origin = new URL(`http://127.0.0.1:${address.port}`); });
+  afterAll(async () => { if (seoIds.length) await connection.db.delete(seoEvaluations).where(inArray(seoEvaluations.id, seoIds)); if (qaIds.length) await connection.db.delete(qaEvaluations).where(inArray(qaEvaluations.id, qaIds)); await app.close(); await connection.pool.end(); });
+  it("persists core first and retrieves the SEO result with the same scanner run", async () => { const result = await runControlledSeoWorkflow({ apiUrl: origin, internalToken: "p12-test-only-token" }, "seo-clean"); seoIds.push(result.persistedSeoEvaluation.id); qaIds.push(result.persistedEvaluation.id); expect(result.scannerResult.scanId).toBe(result.persistedSeoEvaluation.scannerRunId); expect(result.seo.summary).toEqual({ passed: 9, warnings: 0, notApplicable: 0 }); const response = await fetch(new URL(`/internal/seo-evaluations/${result.persistedSeoEvaluation.id}`, origin), { headers: { authorization: "Bearer p12-test-only-token" } }); expect(response.status).toBe(200); expect(seoEvaluationResponseSchema.parse(await response.json()).id).toBe(result.persistedSeoEvaluation.id); });
+});

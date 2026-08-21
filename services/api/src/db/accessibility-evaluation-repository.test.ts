@@ -33,6 +33,67 @@ describeDatabase("PostgreSQL accessibility evaluation persistence", () => {
   beforeAll(async () => { connection = createDatabase(safeDatabaseUrl!); await migrate(connection.db, { migrationsFolder: "drizzle" }); repository = new PostgresAccessibilityEvaluationRepository(connection.db); });
   afterAll(async () => { if (ids.length) await connection.db.delete(accessibilityEvaluations).where(inArray(accessibilityEvaluations.id, ids)); await connection.pool.end(); });
 
+  it("returns an empty page when the test table has no inserted rows", async () => {
+    const page = await repository.list({ limit: 20, before: { createdAt: "1900-01-01T00:00:00.000Z", id: "00000000-0000-4000-8000-000000000000" } });
+    expect(page.evaluations).toEqual([]);
+    expect(page.nextPosition).toBeNull();
+  });
+
+  it("implements createdAt/id keyset pagination with limit plus one", async () => {
+    const rowIds = [
+      "00000000-0000-4000-8000-000000000001",
+      "00000000-0000-4000-8000-000000000002",
+      "00000000-0000-4000-8000-000000000003",
+    ];
+    const createdAt = new Date("2026-08-21T00:02:00.000Z");
+    for (const [index, id] of rowIds.entries()) {
+      const value = input(randomUUID());
+      await connection.db.insert(accessibilityEvaluations).values({
+        id,
+        scannerRunId: value.scannerRunId,
+        source: "controlled-scanner",
+        schemaVersion: value.schemaVersion,
+        evaluatorVersion: value.evaluatorVersion,
+        engine: value.engine,
+        engineVersion: value.engineVersion,
+        requestedUrl: value.requestedUrl,
+        finalUrl: value.finalUrl,
+        scannedAt: new Date(value.scannedAt),
+        evaluationJson: { evaluation: value.evaluation, adapter: value.adapter, adapterVersion: value.adapterVersion, rulesetTags: value.rulesetTags },
+        createdAt: new Date(createdAt.getTime() + index * 0),
+      });
+    }
+    const first = await repository.list({ limit: 2 });
+    expect(first.evaluations.map((item) => item.id)).toEqual([rowIds[2], rowIds[1]]);
+    expect(first.nextPosition).toEqual({ createdAt: createdAt.toISOString(), id: rowIds[1] });
+    const second = await repository.list({ limit: 2, before: first.nextPosition! });
+    expect(second.evaluations.map((item) => item.id)).toEqual([rowIds[0]]);
+    expect(second.nextPosition).toBeNull();
+    expect(new Set([...first.evaluations, ...second.evaluations].map((item) => item.id)).size).toBe(3);
+    await connection.db.delete(accessibilityEvaluations).where(inArray(accessibilityEvaluations.id, rowIds));
+  });
+
+  it("does not skip corrupt rows during list reads", async () => {
+    const id = "00000000-0000-4000-8000-000000000011";
+    const value = input(randomUUID());
+    await connection.db.insert(accessibilityEvaluations).values({
+      id,
+      scannerRunId: value.scannerRunId,
+      source: "controlled-scanner",
+      schemaVersion: value.schemaVersion,
+      evaluatorVersion: value.evaluatorVersion,
+      engine: value.engine,
+      engineVersion: value.engineVersion,
+      requestedUrl: value.requestedUrl,
+      finalUrl: value.finalUrl,
+      scannedAt: new Date(value.scannedAt),
+      evaluationJson: {} as never,
+      createdAt: new Date("2026-08-21T00:03:00.000Z"),
+    });
+    await expect(repository.list({ limit: 20 })).rejects.toThrow(AccessibilityEvaluationPersistenceCorruptionError);
+    await connection.db.delete(accessibilityEvaluations).where(eq(accessibilityEvaluations.id, id));
+  });
+
   it("persists JSONB, reads through a separate repository, and is idempotent", async () => {
     const value = input(); const created = await repository.create(value); ids.push(created.evaluation.id);
     expect(created.created).toBe(true);
@@ -47,6 +108,8 @@ describeDatabase("PostgreSQL accessibility evaluation persistence", () => {
     const value = input(); const id = randomUUID(); ids.push(id);
     await connection.db.insert(accessibilityEvaluations).values({ id, scannerRunId: value.scannerRunId, source: "controlled-scanner", schemaVersion: 1, evaluatorVersion: 1, engine: "axe-core", engineVersion: "4.12.0", requestedUrl: value.requestedUrl, finalUrl: value.finalUrl, scannedAt: new Date(value.scannedAt), evaluationJson: { evaluation: value.evaluation, adapter: value.adapter, adapterVersion: value.adapterVersion, rulesetTags: value.rulesetTags } });
     await expect(connection.db.select({ id: accessibilityEvaluations.id }).from(accessibilityEvaluations).where(eq(accessibilityEvaluations.id, id))).resolves.toEqual([{ id }]);
+    await expect(repository.findByScannerRun(value.scannerRunId, 1, "4.13.0")).resolves.toBeUndefined();
+    await expect(repository.findByScannerRun(value.scannerRunId, 2, "4.12.0")).resolves.toBeUndefined();
     await connection.db.update(accessibilityEvaluations).set({ evaluationJson: {} as never }).where(eq(accessibilityEvaluations.id, id));
     await expect(repository.findById(id)).rejects.toThrow(AccessibilityEvaluationPersistenceCorruptionError);
   });

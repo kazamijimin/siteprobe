@@ -4,6 +4,8 @@ import {
   controlledQaEvaluationCreateSchema,
   controlledQaEvaluationListItemSchema,
   controlledQaEvaluationPublicResponseSchema,
+  ACCESSIBILITY_EVALUATOR_VERSION,
+  AXE_ENGINE_VERSION,
   listControlledQaEvaluationsQuerySchema,
   listControlledQaEvaluationsResponseSchema,
   qaEvaluationListCursorPayloadSchema,
@@ -17,11 +19,14 @@ import {
   QaEvaluationPersistenceCorruptionError,
   type QaEvaluationRepository,
 } from "../evaluations/repository.js";
+import type { AccessibilityEvaluationRepository } from "../accessibility-evaluations/repository.js";
 
 type QaRouteOptions = {
   repository: QaEvaluationRepository;
   token: string | undefined;
   publicReadEnabled: boolean;
+  accessibilityRepository: AccessibilityEvaluationRepository;
+  accessibilityPublicReadEnabled: boolean;
 };
 
 function errorEnvelope(code: string, message: string, requestId: string, details?: Array<{ path: string; message: string }>) {
@@ -48,7 +53,7 @@ function authorize(request: { headers: { authorization?: string }; id: string },
   return true;
 }
 
-function projectPublicEvaluation(evaluation: ControlledQaEvaluationResponse) {
+function projectPublicEvaluation(evaluation: ControlledQaEvaluationResponse, relatedAccessibilityEvaluationId: string | null) {
   const projected = controlledQaEvaluationPublicResponseSchema.safeParse({
     id: evaluation.id,
     source: evaluation.source,
@@ -59,6 +64,7 @@ function projectPublicEvaluation(evaluation: ControlledQaEvaluationResponse) {
     scannedAt: evaluation.scannedAt,
     evaluation: evaluation.evaluation,
     createdAt: evaluation.createdAt,
+    relatedAccessibilityEvaluationId,
   });
   if (!projected.success) {
     throw new QaEvaluationPersistenceCorruptionError("Stored QA evaluation failed public contract validation", { cause: projected.error });
@@ -185,6 +191,15 @@ export const qaEvaluationRoutes = (options: QaRouteOptions): FastifyPluginAsync 
 
     const evaluation = await options.repository.findById(params.data.id);
     if (!evaluation) return reply.code(404).send(errorEnvelope("NOT_FOUND", "QA evaluation not found", request.id));
-    return reply.code(200).send(projectPublicEvaluation(evaluation));
+    let relatedAccessibilityEvaluationId: string | null = null;
+    if (options.accessibilityPublicReadEnabled) {
+      const related = await options.accessibilityRepository.findByScannerRun(
+        evaluation.scannerRunId,
+        ACCESSIBILITY_EVALUATOR_VERSION,
+        AXE_ENGINE_VERSION,
+      );
+      relatedAccessibilityEvaluationId = related?.id ?? null;
+    }
+    return reply.code(200).send(projectPublicEvaluation(evaluation, relatedAccessibilityEvaluationId));
   });
 };

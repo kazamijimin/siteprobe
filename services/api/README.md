@@ -115,6 +115,44 @@ token or database credentials. P7 uses in-process `fixture.invalid` route
 fulfillment and does not use the private scanner worker. Phase H remains
 deferred pending verified isolation.
 
+## Product Phase P12 controlled SEO evaluation
+
+P12 adds a separate developer-only SEO workflow. Run only the allowlisted
+fixtures with `pnpm controlled:seo --list` or, for example,
+`pnpm controlled:seo seo-clean`. The workflow performs one controlled browser
+navigation, inspects the already-loaded DOM, persists core QA first, then
+persists the SEO Evaluation v1 through:
+
+```text
+POST /internal/seo-evaluations
+GET  /internal/seo-evaluations/:id
+Authorization: Bearer <QA_EVALUATION_INTERNAL_TOKEN>
+```
+
+There is no public SEO route, mobile adapter, score, grade, crawl, robots.txt
+request, sitemap request, canonical follow, or arbitrary URL input. SEO rows
+are immutable and idempotent on `(scannerRunId, evaluatorVersion)` and live in
+the independent `seo_evaluations` table created by the forward migration.
+
+## Product Phase P11 evaluation cross-links
+
+P11 extends the existing public detail responses with nullable related IDs:
+
+```text
+GET /api/qa-evaluations/:id
+  relatedAccessibilityEvaluationId: uuid | null
+
+GET /api/accessibility-evaluations/:id
+  relatedQaEvaluationId: uuid | null
+```
+
+The API resolves the shared scanner run internally using the current evaluator
+versions only. Each related ID is exposed only when the related domain's
+public-read flag is enabled; missing pairs return `null`. `scannerRunId` and
+the other evaluation's content are never exposed. Cross-link reads do not run
+a scanner, axe, Playwright, fixture, target request, or database write. No
+migration or schema change is required.
+
 ## Product Phase P8 accessibility persistence
 
 P8 adds the independent `accessibility_evaluations` JSONB snapshot table and
@@ -133,3 +171,38 @@ and have no public or mobile adapter. Rows are immutable and idempotent on
 `200`, conflicts return `409`, and corrupt JSONB is surfaced as a persistence
 error. Accessibility ingestion occurs only after the core P3 evaluator has been
 persisted by the developer-only P8 workflow.
+
+Product Phase P9 adds a separate development-only read adapter:
+
+```env
+ACCESSIBILITY_EVALUATION_PUBLIC_READ_ENABLED=false
+```
+
+When explicitly enabled, `GET /api/accessibility-evaluations/:id` returns a
+strict presentation projection of one already-persisted evaluation with
+`Cache-Control: no-store`. When disabled or unset it returns `404` before
+repository access. The route performs no scanner, axe, target-network, or
+database-write operation and exposes no `scannerRunId`, raw axe fields, HTML,
+help URLs, score, or compliance claim. Viewing an accessibility evaluation does
+not run axe or start a scanner. Automated accessibility checks are not
+equivalent to full WCAG conformance testing.
+
+## Product Phase P10 accessibility evaluation index
+
+P10 adds the same development-gated, read-only flag to the compact index:
+
+```text
+GET /api/accessibility-evaluations
+GET /api/accessibility-evaluations?limit=20&cursor=<opaque-cursor>
+```
+
+The endpoint returns persisted P8 accessibility summaries in `created_at DESC,
+id DESC` order using a separate versioned base64url keyset cursor. It rejects
+unknown query fields, supports limits from 1 through 50 (default 20), and
+returns `Cache-Control: no-store`. The route is gated before query parsing and
+repository access, returns `404` when disabled, and never runs axe, launches a
+scanner, requests a target URL, or writes to PostgreSQL. Navigation failures
+remain explicitly `notApplicable` rather than appearing as zero violations.
+The index is separate from synthetic scan history. Automated accessibility
+checks are not equivalent to full WCAG conformance testing. Phase H remains
+deferred pending verified isolation.

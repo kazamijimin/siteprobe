@@ -2,21 +2,33 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import type { FastifyPluginAsync } from "fastify";
 import {
   accessibilityEvaluationCreateSchema,
+  accessibilityEvaluationListCursorPayloadSchema,
+  accessibilityEvaluationListCursorSchema,
+  accessibilityEvaluationListItemSchema,
+  accessibilityEvaluationPublicResponseSchema,
+  accessibilityEvaluationIdParamsSchema,
   accessibilityEvaluationResponseSchema,
-  qaEvaluationIdParamsSchema,
+  listAccessibilityEvaluationsQuerySchema,
+  listAccessibilityEvaluationsResponseSchema,
+  QA_EVALUATOR_VERSION,
   type AccessibilityEvaluationCreate,
+  type AccessibilityEvaluationResponse,
 } from "@siteprobe/contracts";
 import {
   AccessibilityEvaluationConflictError,
   AccessibilityEvaluationPersistenceCorruptionError,
   type AccessibilityEvaluationRepository,
 } from "../accessibility-evaluations/repository.js";
+import type { QaEvaluationRepository } from "../evaluations/repository.js";
 
 const ACCESSIBILITY_BODY_LIMIT_BYTES = 64 * 1024;
 
 type AccessibilityRouteOptions = {
   repository: AccessibilityEvaluationRepository;
   token: string | undefined;
+  publicReadEnabled: boolean;
+  qaRepository: QaEvaluationRepository;
+  qaPublicReadEnabled: boolean;
 };
 
 function errorEnvelope(code: string, message: string, requestId: string, details?: Array<{ path: string; message: string }>) {
@@ -56,6 +68,19 @@ function isControlledFixtureUrl(value: string | null): boolean {
   }
 }
 
+function encodeCursor(position: { createdAt: string; id: string }): string {
+  const payload = accessibilityEvaluationListCursorPayloadSchema.parse({ v: 1, ...position });
+  return accessibilityEvaluationListCursorSchema.parse(Buffer.from(JSON.stringify(payload), "utf8").toString("base64url"));
+}
+
+function decodeCursor(cursor: string): { createdAt: string; id: string } {
+  const validatedCursor = accessibilityEvaluationListCursorSchema.parse(cursor);
+  const payload = accessibilityEvaluationListCursorPayloadSchema.parse(
+    JSON.parse(Buffer.from(validatedCursor, "base64url").toString("utf8")) as unknown,
+  );
+  return { createdAt: payload.createdAt, id: payload.id };
+}
+
 export const accessibilityEvaluationRoutes = (options: AccessibilityRouteOptions): FastifyPluginAsync => async (app) => {
   app.post("/internal/accessibility-evaluations", { bodyLimit: ACCESSIBILITY_BODY_LIMIT_BYTES }, async (request, reply) => {
     if (!authorize(request, reply, options.token)) return;
@@ -85,7 +110,7 @@ export const accessibilityEvaluationRoutes = (options: AccessibilityRouteOptions
 
   app.get("/internal/accessibility-evaluations/:id", async (request, reply) => {
     if (!authorize(request, reply, options.token)) return;
-    const params = qaEvaluationIdParamsSchema.safeParse(request.params);
+    const params = accessibilityEvaluationIdParamsSchema.safeParse(request.params);
     if (!params.success) {
       return reply.code(400).send(errorEnvelope("VALIDATION_ERROR", "Request validation failed", request.id, [
         { path: "id", message: "id must be a valid UUID" },
@@ -95,4 +120,126 @@ export const accessibilityEvaluationRoutes = (options: AccessibilityRouteOptions
     if (!evaluation) return reply.code(404).send(errorEnvelope("NOT_FOUND", "Accessibility evaluation not found", request.id));
     return reply.code(200).send(accessibilityEvaluationResponseSchema.parse(evaluation));
   });
+
+  app.get("/api/accessibility-evaluations", async (request, reply) => {
+    reply.header("Cache-Control", "no-store");
+    if (!options.publicReadEnabled) {
+      return reply.code(404).send(errorEnvelope("NOT_FOUND", "Accessibility evaluations not found", request.id));
+    }
+
+    const query = listAccessibilityEvaluationsQuerySchema.safeParse(request.query);
+    if (!query.success) {
+      return reply.code(400).send(errorEnvelope(
+        "VALIDATION_ERROR",
+        "Request validation failed",
+        request.id,
+        query.error.issues.map((issue) => ({ path: issue.path.join(".") || "query", message: issue.message })),
+      ));
+    }
+
+    let before: { createdAt: string; id: string } | undefined;
+    if (query.data.cursor) {
+      try {
+        before = decodeCursor(query.data.cursor);
+      } catch {
+        return reply.code(400).send(errorEnvelope(
+          "VALIDATION_ERROR",
+          "Request validation failed",
+          request.id,
+          [{ path: "cursor", message: "Cursor is invalid" }],
+        ));
+      }
+    }
+
+    const page = await options.repository.list({ limit: query.data.limit, before });
+    const response = listAccessibilityEvaluationsResponseSchema.parse({
+      evaluations: page.evaluations.map(projectPublicAccessibilityEvaluationListItem),
+      nextCursor: page.nextPosition ? encodeCursor(page.nextPosition) : null,
+    });
+    return reply.code(200).send(response);
+  });
+
+  app.get("/api/accessibility-evaluations/:id", async (request, reply) => {
+    reply.header("Cache-Control", "no-store");
+    if (!options.publicReadEnabled) {
+      return reply.code(404).send(errorEnvelope("NOT_FOUND", "Accessibility evaluation not found", request.id));
+    }
+
+    const params = accessibilityEvaluationIdParamsSchema.safeParse(request.params);
+    if (!params.success) {
+      return reply.code(400).send(errorEnvelope("VALIDATION_ERROR", "Request validation failed", request.id, [
+        { path: "id", message: "id must be a valid UUID" },
+      ]));
+    }
+
+    const evaluation = await options.repository.findById(params.data.id);
+    if (!evaluation) return reply.code(404).send(errorEnvelope("NOT_FOUND", "Accessibility evaluation not found", request.id));
+    let relatedQaEvaluationId: string | null = null;
+    if (options.qaPublicReadEnabled) {
+      const related = await options.qaRepository.findByScannerRun(
+        evaluation.scannerRunId,
+        QA_EVALUATOR_VERSION,
+      );
+      relatedQaEvaluationId = related?.id ?? null;
+    }
+    return reply.code(200).send(projectPublicAccessibilityEvaluation(evaluation, relatedQaEvaluationId));
+  });
 };
+
+function projectPublicAccessibilityEvaluation(evaluation: AccessibilityEvaluationResponse, relatedQaEvaluationId: string | null) {
+  const projected = accessibilityEvaluationPublicResponseSchema.safeParse({
+    id: evaluation.id,
+    source: evaluation.source,
+    schemaVersion: evaluation.schemaVersion,
+    evaluatorVersion: evaluation.evaluatorVersion,
+    requestedUrl: evaluation.requestedUrl,
+    finalUrl: evaluation.finalUrl,
+    scannedAt: evaluation.scannedAt,
+    createdAt: evaluation.createdAt,
+    engine: {
+      engine: evaluation.engine,
+      engineVersion: evaluation.engineVersion,
+      adapter: evaluation.adapter,
+      adapterVersion: evaluation.adapterVersion,
+      rulesetTags: evaluation.rulesetTags,
+    },
+    evaluation: evaluation.evaluation,
+    relatedQaEvaluationId,
+  });
+  if (!projected.success) {
+    throw new AccessibilityEvaluationPersistenceCorruptionError("Stored accessibility evaluation failed public contract validation", { cause: projected.error });
+  }
+  return projected.data;
+}
+
+function projectPublicAccessibilityEvaluationListItem(evaluation: AccessibilityEvaluationResponse) {
+  const projected = accessibilityEvaluationListItemSchema.safeParse(
+    evaluation.evaluation.status === "completed"
+      ? {
+          id: evaluation.id,
+          source: evaluation.source,
+          evaluatorVersion: evaluation.evaluatorVersion,
+          requestedUrl: evaluation.requestedUrl,
+          scannedAt: evaluation.scannedAt,
+          createdAt: evaluation.createdAt,
+          engine: { engine: evaluation.engine, engineVersion: evaluation.engineVersion },
+          status: evaluation.evaluation.status,
+          summary: evaluation.evaluation.summary,
+        }
+      : {
+          id: evaluation.id,
+          source: evaluation.source,
+          evaluatorVersion: evaluation.evaluatorVersion,
+          requestedUrl: evaluation.requestedUrl,
+          scannedAt: evaluation.scannedAt,
+          createdAt: evaluation.createdAt,
+          engine: { engine: evaluation.engine, engineVersion: evaluation.engineVersion },
+          status: evaluation.evaluation.status,
+          reason: evaluation.evaluation.reason,
+        },
+  );
+  if (!projected.success) {
+    throw new AccessibilityEvaluationPersistenceCorruptionError("Stored accessibility evaluation failed public list contract validation", { cause: projected.error });
+  }
+  return projected.data;
+}

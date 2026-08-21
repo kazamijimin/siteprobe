@@ -23,6 +23,7 @@ const evaluationFixture = {
     summary: { critical: 0, warnings: 0, passed: 6, notApplicable: 0 },
   },
   createdAt: '2026-08-20T00:01:00.000Z',
+  relatedAccessibilityEvaluationId: null,
 };
 
 const listFixture = {
@@ -58,6 +59,14 @@ describe('controlled QA evaluation API', () => {
       `${getApiBaseUrl()}/api/qa-evaluations/${encodeURIComponent(evaluationFixture.id)}`,
       expect.objectContaining({ method: 'GET' }),
     );
+  });
+
+  it('preserves nullable related accessibility IDs without exposing scanner runs', async () => {
+    process.env.EXPO_PUBLIC_API_URL = 'http://127.0.0.1:3000';
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ ...evaluationFixture, relatedAccessibilityEvaluationId: '00000000-0000-4000-8000-000000000001' }) }));
+    await expect(getQaEvaluation(evaluationFixture.id)).resolves.toMatchObject({ relatedAccessibilityEvaluationId: '00000000-0000-4000-8000-000000000001' });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ ...evaluationFixture, relatedAccessibilityEvaluationId: 'invalid' }) }));
+    await expect(getQaEvaluation(evaluationFixture.id)).rejects.toBeInstanceOf(ContractError);
   });
 
   it('lists evaluations with bounded query parameters and validates the response', async () => {

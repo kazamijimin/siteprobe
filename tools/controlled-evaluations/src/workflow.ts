@@ -102,3 +102,5 @@ export async function runControlledEvaluationWorkflow(
 
 export { runControlledAccessibilityWorkflow } from "./accessibility-workflow.js";
 export type { ControlledAccessibilityWorkflowResult } from "./accessibility-workflow.js";
+export { runControlledSeoWorkflow, buildSeoIngestionPayload } from "./seo-workflow.js";
+export type { ControlledSeoWorkflowResult } from "./seo-workflow.js";
