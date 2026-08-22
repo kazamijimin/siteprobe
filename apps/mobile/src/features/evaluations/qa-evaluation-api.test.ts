@@ -6,6 +6,7 @@ import { getQaEvaluation, listQaEvaluations } from '@/features/evaluations/qa-ev
 const evaluationFixture = {
   id: '00000000-0000-4000-8000-000000000000',
   source: 'controlled-scanner' as const,
+  provenance: 'controlled-fixture' as const,
   schemaVersion: 1 as const,
   evaluatorVersion: 1 as const,
   requestedUrl: 'https://example.com/',
@@ -24,12 +25,14 @@ const evaluationFixture = {
   },
   createdAt: '2026-08-20T00:01:00.000Z',
   relatedAccessibilityEvaluationId: null,
+  relatedSeoEvaluationId: null,
 };
 
 const listFixture = {
   evaluations: [{
     id: evaluationFixture.id,
     source: 'controlled-scanner' as const,
+    provenance: 'controlled-fixture' as const,
     evaluatorVersion: 1 as const,
     requestedUrl: evaluationFixture.requestedUrl,
     scannedAt: evaluationFixture.scannedAt,

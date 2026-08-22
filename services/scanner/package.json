@@ -18,6 +18,11 @@
       "types": "./src/controlled-accessibility.ts",
       "import": "./src/controlled-accessibility.ts",
       "default": "./src/controlled-accessibility.ts"
+    },
+    "./real-site": {
+      "types": "./src/real-site.ts",
+      "import": "./src/real-site.ts",
+      "default": "./src/real-site.ts"
     }
   },
   "scripts": {

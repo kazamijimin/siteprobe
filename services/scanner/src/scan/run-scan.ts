@@ -10,7 +10,9 @@ import { chromiumLauncher, type BrowserLauncher } from "../browser/browser.js";
 import { createScannerContext } from "../browser/context.js";
 import {
   appendPopupDiagnostic,
+  consumePolicyBlockedConsoleDiagnostic,
   createNetworkPolicyState,
+  isPolicyBlockedRequest,
   installNetworkPolicy,
   type TestOnlyRouteHandler,
   type NetworkPolicyState,
@@ -47,6 +49,8 @@ export type ScannerRunOptions = {
   testOnlyRouteHandler?: TestOnlyRouteHandler;
   /** Required for isolated deployments; controlled mode intentionally leaves this unset. */
   proxyServer?: string;
+  /** Optional developer-only allowlist for top-level document navigations. */
+  topLevelNavigationHosts?: readonly string[];
 };
 
 type MutableResources = {
@@ -117,6 +121,7 @@ function collectPageEvents(
   pageErrors: string[],
 ): void {
   page.on("console", (message) => {
+    if (consumePolicyBlockedConsoleDiagnostic(state, message.text())) return;
     if (message.type() === "error" && consoleErrors.length < policy.maxRecordedErrors) {
       consoleErrors.push(boundedText(message.text()));
     }
@@ -127,6 +132,7 @@ function collectPageEvents(
     }
   });
   page.on("requestfailed", (request) => {
+    if (isPolicyBlockedRequest(state, request)) return;
     if (state.failedRequests.length < policy.maxRecordedErrors) {
       state.failedRequests.push(
         createFailedRequest({
@@ -134,6 +140,7 @@ function collectPageEvents(
           method: request.method(),
           resourceType: request.resourceType(),
           failureReason: request.failure()?.errorText ?? "request failed",
+          attribution: "TARGET_FAILURE",
         }),
       );
     }
@@ -150,6 +157,7 @@ function collectPageEvents(
           method: "DOWNLOAD",
           resourceType: "download",
           failureReason: "downloads disabled",
+          attribution: "SCANNER_POLICY_BLOCK",
         }),
       );
     }
@@ -201,6 +209,7 @@ async function executeScan<T>(
     state,
     () => resources.page,
     options.testOnlyRouteHandler,
+    options.topLevelNavigationHosts,
   );
   resources.page = await resources.context.newPage();
   resources.page.setDefaultNavigationTimeout(policy.navigationTimeoutMs);
@@ -243,7 +252,9 @@ async function executeScan<T>(
   const scannerResult = scannerResultSchema.parse({
     scanId: input.scanId,
     requestedUrl: sanitizeUrl(safeDestination.normalizedUrl),
-    finalUrl: finalUrl === "[invalid-url]" ? safeDestination.normalizedUrl : finalUrl,
+    finalUrl: navigationSucceeded
+      ? (finalUrl === "[invalid-url]" ? safeDestination.normalizedUrl : finalUrl === "[unavailable-url]" ? safeDestination.normalizedUrl : finalUrl)
+      : null,
     navigationSucceeded,
     httpStatus: responseStatus,
     pageTitle,

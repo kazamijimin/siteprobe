@@ -11,6 +11,8 @@ import { getQaEvaluation } from '@/features/evaluations/qa-evaluation-api';
 import {
   formatEvaluationTimestamp,
   formatEvaluationTimestampForAccessibility,
+  formatEvaluationProvenance,
+  formatEvaluationProvenanceDescription,
   formatEvidenceCount,
   formatQaCategory,
   formatQaSeverity,
@@ -67,32 +69,26 @@ function renderEvidence(evidence: QaEvidence) {
     );
   }
 
+  return <DiagnosticEvidence evidence={evidence} />;
+}
+
+function DiagnosticEvidence({ evidence }: { evidence: Extract<QaEvidence, { kind: 'messages' | 'failedRequests' }> }) {
+  const [expanded, setExpanded] = useState(false);
   const samples = evidence.kind === 'messages'
     ? evidence.samples.map((sample, index) => ({ key: `message-${index}`, content: sample }))
     : evidence.samples.map((sample, index) => ({
       key: `request-${index}`,
-      content: `${sample.method}\n${sample.resourceType}\n${sample.url}\n${sample.failureReason}`,
+      content: `${sample.method}\n${sample.resourceType}\n${sample.url}\n${sample.failureReason}${sample.attribution ? `\nAttribution: ${sample.attribution}` : ''}`,
     }));
-
   return (
     <View style={styles.evidenceContent}>
-      <Text style={styles.detailValue}>
-        {formatEvidenceCount(evidence.kind, evidence.recordedCount)}
-      </Text>
-      {samples.length > 0 ? (
-        <View style={styles.sampleList}>
-          {samples.map((sample) => (
-            <Text selectable key={sample.key} style={styles.evidenceSample}>{sample.content}</Text>
-          ))}
-        </View>
-      ) : (
-        <Text style={styles.evidenceSample}>No samples recorded.</Text>
-      )}
-      {evidence.samplesTruncated ? (
-        <Text style={styles.evidenceNote}>
-          {formatTruncatedEvidenceCount(evidence.kind, samples.length, evidence.recordedCount)}
-        </Text>
-      ) : null}
+      <Text style={styles.detailValue}>{formatEvidenceCount(evidence.kind, evidence.recordedCount)}</Text>
+      {evidence.kind === 'failedRequests' ? <Text style={styles.evidenceNote}>Target failures: {evidence.targetFailureCount ?? evidence.recordedCount} · Scanner policy blocks: {evidence.scannerPolicyBlockCount ?? 0}</Text> : null}
+      <Pressable accessibilityRole="button" accessibilityState={{ expanded }} onPress={() => setExpanded((value) => !value)} style={({ pressed }) => [styles.technicalToggle, pressed && styles.buttonPressed]}>
+        <Text style={styles.technicalToggleText}>{expanded ? 'Hide technical details' : 'Show technical details'}</Text>
+      </Pressable>
+      {expanded ? (samples.length > 0 ? <View style={styles.sampleList}>{samples.map((sample) => <Text selectable key={sample.key} style={styles.evidenceSample}>{sample.content}</Text>)}</View> : <Text style={styles.evidenceSample}>No samples recorded.</Text>) : null}
+      {expanded && evidence.samplesTruncated ? <Text style={styles.evidenceNote}>{formatTruncatedEvidenceCount(evidence.kind, samples.length, evidence.recordedCount)}</Text> : null}
     </View>
   );
 }
@@ -167,7 +163,7 @@ export default function QaEvaluationDetailScreen() {
 
   if (state.status === 'loading') {
     return (
-      <View style={styles.container}>
+      <View accessibilityRole={"main" as never} style={styles.container}>
         <Stack.Screen options={{ title: 'Controlled QA Evaluation' }} />
         <View accessibilityLiveRegion="polite" style={styles.centerContent}>
           <ActivityIndicator color="#2563EB" size="large" />
@@ -202,13 +198,14 @@ export default function QaEvaluationDetailScreen() {
   const accessiblePersistedAt = formatEvaluationTimestampForAccessibility(evaluation.createdAt);
 
   return (
-    <View style={styles.container}>
+    <View accessibilityRole={"main" as never} style={styles.container}>
       <Stack.Screen options={{ title: 'Controlled QA Evaluation' }} />
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.content}>
           <Text accessibilityRole="header" style={styles.pageTitle}>Controlled QA Evaluation</Text>
+          <Text style={styles.provenanceBadge}>{formatEvaluationProvenance(evaluation.provenance)}</Text>
           <Text style={styles.provenanceNotice}>
-            This result was produced from a controlled scanner run.{"\n"}
+            {formatEvaluationProvenanceDescription(evaluation.provenance)}{"\n"}
             It is separate from SiteProbe&apos;s current synthetic public scan workflow.
           </Text>
 
@@ -257,6 +254,24 @@ export default function QaEvaluationDetailScreen() {
             </Pressable>
           ) : null}
 
+          {evaluation.relatedSeoEvaluationId ? (
+            <Pressable
+              accessibilityLabel="View SEO Evaluation"
+              accessibilityRole="button"
+              onPress={() => router.push({ pathname: '/seo-evaluations/[id]', params: { id: evaluation.relatedSeoEvaluationId! } })}
+              style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}>
+              <Text style={styles.secondaryButtonText}>View SEO Evaluation</Text>
+            </Pressable>
+          ) : null}
+
+          <Pressable
+            accessibilityLabel="View Unified Report"
+            accessibilityRole="button"
+            onPress={() => router.push({ pathname: '/evaluation-reports/[id]', params: { id: evaluation.id } })}
+            style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}>
+            <Text style={styles.secondaryButtonText}>View Unified Report</Text>
+          </Pressable>
+
           <Pressable
             accessibilityLabel="Back to Home"
             accessibilityRole="button"
@@ -280,7 +295,7 @@ type StateScreenProps = {
 
 function StateScreen({ title, heading, message, onBack, onRetry }: StateScreenProps) {
   return (
-    <View style={styles.container}>
+    <View accessibilityRole={"main" as never} style={styles.container}>
       <Stack.Screen options={{ title }} />
       <View style={styles.content}>
         <Text accessibilityRole="header" style={styles.pageTitle}>{heading}</Text>
@@ -313,6 +328,7 @@ const styles = StyleSheet.create({
   centerContent: { alignItems: 'center', flex: 1, justifyContent: 'center', padding: 24 },
   pageTitle: { color: '#1A202C', fontSize: 30, fontWeight: '700' },
   provenanceNotice: { backgroundColor: '#FFFBEB', borderColor: '#F6E05E', borderRadius: 10, borderWidth: 1, color: '#744210', fontSize: 15, lineHeight: 23, marginTop: 18, padding: 16 },
+  provenanceBadge: { alignSelf: 'flex-start', backgroundColor: '#EBF8FF', borderColor: '#90CDF4', borderRadius: 999, borderWidth: 1, color: '#2A4365', fontSize: 14, fontWeight: '700', marginTop: 14, paddingHorizontal: 12, paddingVertical: 6 },
   sectionTitle: { color: '#1A202C', fontSize: 22, fontWeight: '700', marginTop: 28 },
   sectionCard: { backgroundColor: '#FFFFFF', borderColor: '#CBD5E0', borderRadius: 12, borderWidth: 1, marginTop: 12, padding: 18 },
   detailRow: { marginTop: 12 },
@@ -340,6 +356,8 @@ const styles = StyleSheet.create({
   sampleList: { gap: 10, marginTop: 12 },
   evidenceSample: { backgroundColor: '#F7FAFC', borderRadius: 6, color: '#1A202C', fontFamily: 'monospace', fontSize: 14, lineHeight: 21, padding: 10 },
   evidenceNote: { color: '#4A5568', fontSize: 14, lineHeight: 21, marginTop: 12 },
+  technicalToggle: { alignSelf: 'flex-start', borderColor: '#CBD5E0', borderRadius: 8, borderWidth: 1, marginTop: 12, paddingHorizontal: 10, paddingVertical: 8 },
+  technicalToggleText: { color: '#1D4ED8', fontSize: 14, fontWeight: '700' },
   message: { color: '#4A5568', fontSize: 16, lineHeight: 24, marginTop: 20 },
   button: { alignItems: 'center', backgroundColor: '#2563EB', borderRadius: 10, justifyContent: 'center', marginTop: 28, minHeight: 52, paddingHorizontal: 20 },
   buttonPressed: { opacity: 0.8 },

@@ -40,6 +40,7 @@ const create = {
   schemaVersion: 1,
   evaluatorVersion: 1,
   scannerRunId: "5d41977d-ffb9-4388-af0a-0f74c8ee64ab",
+  provenance: "controlled-fixture" as const,
   requestedUrl: "https://example.com/",
   finalUrl: "https://example.com/",
   scannedAt: "2026-08-20T00:00:00.000Z",
@@ -70,7 +71,7 @@ describe("controlled QA evaluation contracts", () => {
   });
 
   it("validates a response envelope without score fields", () => {
-    const response = { id: create.scannerRunId, source: "controlled-scanner", ...create, createdAt: create.scannedAt };
+    const response = { id: create.scannerRunId, source: "controlled-scanner", provenance: create.provenance, ...create, createdAt: create.scannedAt };
     expect(controlledQaEvaluationResponseSchema.parse(response)).not.toHaveProperty("score");
   });
 
@@ -78,6 +79,7 @@ describe("controlled QA evaluation contracts", () => {
     const response = {
       id: create.scannerRunId,
       source: "controlled-scanner",
+      provenance: create.provenance,
       schemaVersion: create.schemaVersion,
       evaluatorVersion: create.evaluatorVersion,
       requestedUrl: create.requestedUrl,
@@ -86,6 +88,7 @@ describe("controlled QA evaluation contracts", () => {
       evaluation: create.evaluation,
       createdAt: create.scannedAt,
       relatedAccessibilityEvaluationId: null,
+      relatedSeoEvaluationId: null,
     };
 
     expect(controlledQaEvaluationPublicResponseSchema.parse(response)).toEqual(response);
@@ -121,6 +124,7 @@ describe("controlled QA evaluation contracts", () => {
     const item = {
       id: create.scannerRunId,
       source: "controlled-scanner",
+      provenance: create.provenance,
       evaluatorVersion: 1,
       requestedUrl: create.requestedUrl,
       scannedAt: create.scannedAt,

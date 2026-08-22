@@ -46,6 +46,7 @@ describe("controlled fixture execution", () => {
   it("captures bounded failed-request evidence", async () => {
     const result = await runControlledFixture("failed-resource");
     expect(result.failedRequests.length).toBeGreaterThan(0);
+    expect(result.failedRequests.every((request) => request.attribution === "TARGET_FAILURE")).toBe(true);
     expect(finding(result, "NO_FAILED_REQUESTS")).toMatchObject({ status: "failed", severity: "warning" });
   });
 });

@@ -4,16 +4,18 @@ import { ContractError } from '@/services/api/client';
 import { getAccessibilityEvaluation, listAccessibilityEvaluations } from '@/features/accessibility-evaluations/accessibility-evaluation-api';
 
 const fixture = {
-  id: '00000000-0000-4000-8000-000000000000', source: 'controlled-scanner' as const, schemaVersion: 1 as const, evaluatorVersion: 1 as const,
+  id: '00000000-0000-4000-8000-000000000000', source: 'controlled-scanner' as const, provenance: 'controlled-fixture' as const, schemaVersion: 1 as const, evaluatorVersion: 1 as const,
   requestedUrl: 'http://fixture.invalid/accessibility-clean', finalUrl: 'http://fixture.invalid/accessibility-clean', scannedAt: '2026-08-21T00:00:00.000Z', createdAt: '2026-08-21T00:01:00.000Z',
   engine: { engine: 'axe-core' as const, engineVersion: '4.13.0' as const, adapter: '@axe-core/playwright' as const, adapterVersion: '4.13.0' as const, rulesetTags: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'] as const },
   relatedQaEvaluationId: null,
+  relatedSeoEvaluationId: null,
   evaluation: { status: 'completed' as const, summary: { violationRules: 0, violationNodes: 0, critical: 0, serious: 0, moderate: 0, minor: 0, unknownImpact: 0, needsReviewRules: 0, needsReviewNodes: 0 }, violations: [], needsReview: [], violationsTruncated: false, needsReviewTruncated: false, countsCapped: false, payloadTruncated: false },
 };
 const listFixture = {
   evaluations: [{
     id: fixture.id,
     source: 'controlled-scanner' as const,
+    provenance: 'controlled-fixture' as const,
     evaluatorVersion: 1 as const,
     requestedUrl: fixture.requestedUrl,
     scannedAt: fixture.scannedAt,

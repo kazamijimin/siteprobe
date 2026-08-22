@@ -50,7 +50,7 @@ export default function HomeScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View accessibilityRole={"main" as never} style={styles.container}>
       <View style={styles.content}>
         <Text accessibilityRole="header" style={styles.title}>
           SiteProbe
@@ -94,11 +94,29 @@ export default function HomeScreen() {
           </Pressable>
 
           <Pressable
+            accessibilityLabel="View SEO Evaluations"
+            accessibilityRole="button"
+            onPress={() => router.push('./seo-evaluations')}
+            style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}>
+            <Text style={styles.secondaryButtonText}>View SEO Evaluations</Text>
+            <Text style={styles.secondaryButtonHint}>Controlled development</Text>
+          </Pressable>
+
+          <Pressable
             accessibilityLabel="View Scan History"
             accessibilityRole="button"
             onPress={() => router.push('/scans')}
             style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}>
             <Text style={styles.secondaryButtonText}>View Scan History</Text>
+          </Pressable>
+
+          <Pressable
+            accessibilityLabel="View Unified Reports"
+            accessibilityRole="button"
+            onPress={() => router.push('./evaluation-reports')}
+            style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}>
+            <Text style={styles.secondaryButtonText}>View Unified Reports</Text>
+            <Text style={styles.secondaryButtonHint}>View combined QA, Accessibility, and SEO results from one evaluation run.</Text>
           </Pressable>
 
           <Pressable

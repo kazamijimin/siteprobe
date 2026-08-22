@@ -64,7 +64,7 @@ export const qaEvaluations = pgTable(
     requestedUrl: text("requested_url").notNull(),
     finalUrl: text("final_url"),
     scannedAt: timestamp("scanned_at", { withTimezone: true, mode: "date" }).notNull(),
-    evaluationJson: jsonb("evaluation_json").$type<ControlledQaEvaluationCreate["evaluation"]>().notNull(),
+    evaluationJson: jsonb("evaluation_json").$type<{ evaluation: ControlledQaEvaluationCreate["evaluation"]; provenance: ControlledQaEvaluationCreate["provenance"] } | ControlledQaEvaluationCreate["evaluation"]>().notNull(),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   },
   (table) => ({
@@ -82,6 +82,7 @@ export type NewQaEvaluationRow = typeof qaEvaluations.$inferInsert;
 
 type StoredAccessibilityEvaluationJson = {
   evaluation: AccessibilityEvaluationCreate["evaluation"];
+  provenance?: AccessibilityEvaluationCreate["provenance"];
   adapter: AccessibilityEvaluationCreate["adapter"];
   adapterVersion: AccessibilityEvaluationCreate["adapterVersion"];
   rulesetTags: AccessibilityEvaluationCreate["rulesetTags"];
@@ -133,7 +134,7 @@ export const seoEvaluations = pgTable(
     requestedUrl: text("requested_url").notNull(),
     finalUrl: text("final_url"),
     scannedAt: timestamp("scanned_at", { withTimezone: true, mode: "date" }).notNull(),
-    evaluationJson: jsonb("evaluation_json").$type<SeoEvaluationCreate["evaluation"]>().notNull(),
+    evaluationJson: jsonb("evaluation_json").$type<{ evaluation: SeoEvaluationCreate["evaluation"]; provenance?: SeoEvaluationCreate["provenance"] } | SeoEvaluationCreate["evaluation"]>().notNull(),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   },
   (table) => ({

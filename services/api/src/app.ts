@@ -6,6 +6,8 @@ import { scanRoutes } from "./routes/scans.js";
 import { qaEvaluationRoutes } from "./routes/qa-evaluations.js";
 import { accessibilityEvaluationRoutes } from "./routes/accessibility-evaluations.js";
 import { seoEvaluationRoutes } from "./routes/seo-evaluations.js";
+import { evaluationReportRoutes } from "./routes/evaluation-reports.js";
+import { InMemoryEvaluationReportHistoryRepository, type EvaluationReportHistoryRepository } from "./evaluation-reports/history.js";
 import { InMemoryScanRepository, type ScanRepository } from "./repository.js";
 import type { ScannerClient } from "./scanner/client.js";
 import { InMemoryQaEvaluationRepository, type QaEvaluationRepository } from "./evaluations/repository.js";
@@ -40,7 +42,10 @@ export type BuildAppOptions = {
   qaEvaluationPublicReadEnabled?: boolean;
   accessibilityEvaluationRepository?: AccessibilityEvaluationRepository;
   accessibilityEvaluationPublicReadEnabled?: boolean;
+  realSiteSmokeTestEnabled?: boolean;
   seoEvaluationRepository?: SeoEvaluationRepository;
+  seoEvaluationPublicReadEnabled?: boolean;
+  evaluationReportHistoryRepository?: EvaluationReportHistoryRepository;
 };
 
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
@@ -61,6 +66,14 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const qaEvaluationRepository = options.qaEvaluationRepository ?? new InMemoryQaEvaluationRepository();
   const accessibilityEvaluationRepository = options.accessibilityEvaluationRepository ?? new InMemoryAccessibilityEvaluationRepository();
   const seoEvaluationRepository = options.seoEvaluationRepository ?? new InMemorySeoEvaluationRepository();
+  const evaluationReportHistoryRepository = options.evaluationReportHistoryRepository ?? new InMemoryEvaluationReportHistoryRepository({
+    qaRepository: qaEvaluationRepository,
+    qaPublicReadEnabled: options.qaEvaluationPublicReadEnabled ?? false,
+    accessibilityRepository: accessibilityEvaluationRepository,
+    accessibilityPublicReadEnabled: options.accessibilityEvaluationPublicReadEnabled ?? false,
+    seoRepository: seoEvaluationRepository,
+    seoPublicReadEnabled: options.seoEvaluationPublicReadEnabled ?? false,
+  });
 
   app.setErrorHandler((error, request, reply) => {
     const apiError = error as { code?: string; validation?: unknown };
@@ -110,6 +123,9 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     publicReadEnabled: options.qaEvaluationPublicReadEnabled ?? false,
     accessibilityRepository: accessibilityEvaluationRepository,
     accessibilityPublicReadEnabled: options.accessibilityEvaluationPublicReadEnabled ?? false,
+    realSiteSmokeTestEnabled: options.realSiteSmokeTestEnabled ?? false,
+    seoRepository: seoEvaluationRepository,
+    seoPublicReadEnabled: options.seoEvaluationPublicReadEnabled ?? false,
   }));
   app.register(accessibilityEvaluationRoutes({
     repository: accessibilityEvaluationRepository,
@@ -117,7 +133,28 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     publicReadEnabled: options.accessibilityEvaluationPublicReadEnabled ?? false,
     qaRepository: qaEvaluationRepository,
     qaPublicReadEnabled: options.qaEvaluationPublicReadEnabled ?? false,
+    realSiteSmokeTestEnabled: options.realSiteSmokeTestEnabled ?? false,
+    seoRepository: seoEvaluationRepository,
+    seoPublicReadEnabled: options.seoEvaluationPublicReadEnabled ?? false,
   }));
-  app.register(seoEvaluationRoutes({ repository: seoEvaluationRepository, token: options.qaEvaluationInternalToken }));
+  app.register(seoEvaluationRoutes({
+    repository: seoEvaluationRepository,
+    token: options.qaEvaluationInternalToken,
+    realSiteSmokeTestEnabled: options.realSiteSmokeTestEnabled ?? false,
+    publicReadEnabled: options.seoEvaluationPublicReadEnabled ?? false,
+    qaRepository: qaEvaluationRepository,
+    qaPublicReadEnabled: options.qaEvaluationPublicReadEnabled ?? false,
+    accessibilityRepository: accessibilityEvaluationRepository,
+    accessibilityPublicReadEnabled: options.accessibilityEvaluationPublicReadEnabled ?? false,
+  }));
+  app.register(evaluationReportRoutes({
+    qaRepository: qaEvaluationRepository,
+    qaPublicReadEnabled: options.qaEvaluationPublicReadEnabled ?? false,
+    accessibilityRepository: accessibilityEvaluationRepository,
+    accessibilityPublicReadEnabled: options.accessibilityEvaluationPublicReadEnabled ?? false,
+    seoRepository: seoEvaluationRepository,
+    seoPublicReadEnabled: options.seoEvaluationPublicReadEnabled ?? false,
+    historyRepository: evaluationReportHistoryRepository,
+  }));
   return app;
 }

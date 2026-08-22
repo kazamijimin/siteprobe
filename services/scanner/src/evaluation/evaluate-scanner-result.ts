@@ -80,14 +80,19 @@ function messageEvidence(messages: readonly string[]): QaEvidence {
 function failedRequestEvidence(
   requests: ScannerResult["failedRequests"],
 ): QaEvidence {
+  const targetFailureCount = requests.filter((request) => request.attribution !== "SCANNER_POLICY_BLOCK").length;
+  const scannerPolicyBlockCount = requests.filter((request) => request.attribution === "SCANNER_POLICY_BLOCK").length;
   return {
     kind: "failedRequests",
     recordedCount: requests.length,
+    targetFailureCount,
+    scannerPolicyBlockCount,
     samples: requests.slice(0, MAX_EVIDENCE_SAMPLES).map((request) => ({
       url: boundedText(request.url, 512),
       method: boundedText(request.method, 16),
       resourceType: boundedText(request.resourceType, 64),
       failureReason: boundedText(request.failureReason, 256),
+      ...(request.attribution ? { attribution: request.attribution } : {}),
     })),
     samplesTruncated: requests.length > MAX_EVIDENCE_SAMPLES,
   };
@@ -239,19 +244,28 @@ function evaluateRule(
 
     case "NO_FAILED_REQUESTS":
       if (!usableNavigation) return notApplicableFinding(rule, failedRequestEvidence(result.failedRequests));
+      if (result.failedRequests.length > 0 && result.failedRequests.every((request) => request.attribution === "SCANNER_POLICY_BLOCK")) {
+        return makeFinding(
+          rule,
+          "passed",
+          "info",
+          "No target requests failed; scanner policy blocks were recorded separately.",
+          failedRequestEvidence(result.failedRequests),
+        );
+      }
       return result.failedRequests.length === 0
         ? makeFinding(
             rule,
             "passed",
             "info",
-            "No requests failed or were blocked.",
+            "No target requests failed.",
             failedRequestEvidence(result.failedRequests),
           )
         : makeFinding(
             rule,
             "failed",
             "warning",
-            "One or more requests failed or were blocked.",
+            "One or more target requests failed.",
             failedRequestEvidence(result.failedRequests),
           );
   }

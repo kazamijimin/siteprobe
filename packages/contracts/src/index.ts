@@ -28,7 +28,10 @@ export type {
   ScanStatus,
   ScanSummary,
 } from "./scan.js";
+export { evaluationProvenanceSchema, controlledEvaluationProvenanceSchema } from "./provenance.js";
+export type { EvaluationProvenance, ControlledEvaluationProvenance } from "./provenance.js";
 export {
+  scannerFailureAttributionSchema,
   scannerSafetyEvaluationSchema,
   scannerFailedRequestSchema,
   scannerInternalErrorCodeSchema,
@@ -38,6 +41,42 @@ export {
   scannerSecurityFailureCodeSchema,
   scannerValidationRequestSchema,
 } from "./scanner.js";
+export {
+  EVALUATION_REPORT_SCHEMA_VERSION,
+  evaluationReportSchemaVersionSchema,
+  evaluationReportUnavailableReasonSchema,
+  evaluationReportQaSchema,
+  evaluationReportAccessibilitySchema,
+  evaluationReportSeoSchema,
+  evaluationReportAttentionSourceSchema,
+  evaluationReportAttentionSeveritySchema,
+  evaluationReportAttentionItemSchema,
+  evaluationReportPublicResponseSchema,
+  evaluationReportListQaSchema,
+  evaluationReportListAccessibilitySchema,
+  evaluationReportListSeoSchema,
+  evaluationReportListItemSchema,
+  evaluationReportListCursorPayloadSchema,
+  evaluationReportListCursorSchema,
+  listEvaluationReportsQuerySchema,
+  listEvaluationReportsResponseSchema,
+  } from "./evaluation-report.js";
+export type {
+  EvaluationReportUnavailableReason,
+  EvaluationReportQa,
+  EvaluationReportAccessibility,
+  EvaluationReportSeo,
+  EvaluationReportAttentionItem,
+  EvaluationReportPublicResponse,
+  EvaluationReportListQa,
+  EvaluationReportListAccessibility,
+  EvaluationReportListSeo,
+  EvaluationReportListItem,
+  EvaluationReportListCursorPayload,
+  ListEvaluationReportsQuery,
+  ListEvaluationReportsResponse,
+  } from "./evaluation-report.js";
+export type { ScannerFailureAttribution } from "./scanner.js";
 export {
   QA_EVALUATOR_VERSION,
   QA_SCHEMA_VERSION,
@@ -100,6 +139,12 @@ export {
   SEO_SCHEMA_VERSION,
   seoCompletedEvaluationSchema,
   seoEvaluationCreateSchema,
+  seoEvaluationPublicResponseSchema,
+  seoEvaluationListItemSchema,
+  seoEvaluationListCursorPayloadSchema,
+  seoEvaluationListCursorSchema,
+  listSeoEvaluationsQuerySchema,
+  listSeoEvaluationsResponseSchema,
   seoEvaluationIdParamsSchema,
   seoEvaluationResponseSchema,
   seoEvaluationSchema,
@@ -120,9 +165,16 @@ export type {
   SeoEvaluation,
   SeoEvaluationCreate,
   SeoEvaluationResponse,
+  SeoEvaluationPublicResponse,
+  SeoEvaluationListItem,
+  SeoEvaluationListCursorPayload,
+  ListSeoEvaluationsQuery,
+  ListSeoEvaluationsResponse,
   SeoEvaluationSummary,
   SeoEvidence,
   SeoFinding,
+  SeoFindingStatus,
+  SeoSeverity,
   SeoNotApplicableEvaluation,
   SeoRuleId,
 } from "./seo-evaluation.js";

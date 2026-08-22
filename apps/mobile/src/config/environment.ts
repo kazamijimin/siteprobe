@@ -5,6 +5,15 @@ export class ApiConfigurationError extends Error {
   }
 }
 
+function isLoopbackWebHost(): boolean {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  const hostname = window.location.hostname;
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
+}
+
 export function getApiBaseUrl(): string {
   const configuredUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
   if (!configuredUrl) {
@@ -38,6 +47,13 @@ export function getApiBaseUrl(): string {
     throw new ApiConfigurationError(
       'SiteProbe API URL must not include a query string or fragment.',
     );
+  }
+
+  // Expo's local .env is shared by native and web targets. Keep the Android
+  // emulator target (10.0.2.2) for native builds, but translate it to the
+  // host loopback address when the bundle is running in a browser on this PC.
+  if (isLoopbackWebHost() && parsedUrl.hostname === '10.0.2.2') {
+    parsedUrl.hostname = '127.0.0.1';
   }
 
   return parsedUrl.toString().replace(/\/+$/, '');

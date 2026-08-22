@@ -41,6 +41,7 @@ const persisted = {
   schemaVersion: 1 as const,
   evaluatorVersion: 1 as const,
   scannerRunId: "5d41977d-ffb9-4388-af0a-0f74c8ee64ab",
+  provenance: "controlled-fixture" as const,
   requestedUrl: "http://fixture.invalid/",
   finalUrl: "http://fixture.invalid/",
   scannedAt: "2026-08-21T00:00:00.000Z",

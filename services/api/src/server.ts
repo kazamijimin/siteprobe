@@ -5,6 +5,7 @@ import { PostgresScanRepository } from "./repository.js";
 import { PostgresQaEvaluationRepository } from "./evaluations/repository.js";
 import { PostgresAccessibilityEvaluationRepository } from "./accessibility-evaluations/repository.js";
 import { PostgresSeoEvaluationRepository } from "./seo-evaluations/repository.js";
+import { PostgresEvaluationReportHistoryRepository } from "./evaluation-reports/history-repository.js";
 
 let config;
 try {
@@ -23,7 +24,14 @@ const app = buildApp({
   qaEvaluationPublicReadEnabled: config.qaEvaluationPublicReadEnabled,
   accessibilityEvaluationRepository: new PostgresAccessibilityEvaluationRepository(connection.db),
   accessibilityEvaluationPublicReadEnabled: config.accessibilityEvaluationPublicReadEnabled,
+  realSiteSmokeTestEnabled: config.realSiteSmokeTestEnabled,
   seoEvaluationRepository: new PostgresSeoEvaluationRepository(connection.db),
+  seoEvaluationPublicReadEnabled: config.seoEvaluationPublicReadEnabled,
+  evaluationReportHistoryRepository: new PostgresEvaluationReportHistoryRepository(connection.db, {
+    qaPublicReadEnabled: config.qaEvaluationPublicReadEnabled,
+    accessibilityPublicReadEnabled: config.accessibilityEvaluationPublicReadEnabled,
+    seoPublicReadEnabled: config.seoEvaluationPublicReadEnabled,
+  }),
 });
 
 let shuttingDown = false;

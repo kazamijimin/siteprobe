@@ -2,7 +2,14 @@
 
 SiteProbe is a mobile-first website QA platform. The long-term product will submit website targets from an Expo application to a backend that runs isolated browser checks.
 
-## Current status: Product Phase P11
+## Current status: Product Phase P16
+
+- Product Phase P16 - Unified report history and discovery
+- Product Phase P15 - Unified evaluation report across QA, accessibility, and SEO
+
+- Product Phase P14 — Public SEO evaluation read experience
+
+- Product Phase P13 — Result trust, provenance, and scanner-policy attribution
 
 - Product Phase P10 — Controlled accessibility evaluation index
 - Product Phase P11 — Controlled evaluation cross-linking
@@ -79,6 +86,58 @@ internally and exposes only the related public evaluation ID, subject to the
 related domain's public-read gate. `scannerRunId` remains private, and missing
 pairs are represented as `null`. No new route, persistence entity, migration,
 scanner behavior, or Phase H integration is added.
+
+Product Phase P13 makes result origin explicit. Public scans are always marked
+`synthetic`; controlled fixture runs are marked `controlled-fixture`; and the
+developer-only ReaDirect smoke workflow is marked `real-site-smoke-test`.
+Historical rows without the marker are read as `legacy-unknown` and are never
+reclassified from a UI URL. Scanner policy blocks (for example, a blocked
+third-party POST) are attributed as `SCANNER_POLICY_BLOCK` and do not become
+target failures or duplicate console errors. Genuine failed resources remain
+`TARGET_FAILURE`. The six controlled QA rules remain unchanged.
+
+Product Phase P14 adds a development-gated, read-only public SEO evaluation
+adapter at `/api/seo-evaluations` and `/api/seo-evaluations/:id`, plus the Expo
+`/seo-evaluations` index and detail routes. The API exposes explicit provenance,
+bounded cursor pagination, nine existing SEO findings, and only safe related QA
+and accessibility IDs when those domains are also enabled. It does not calculate
+a numeric SEO score, start scans, or change the synthetic `POST /api/scans`
+flow. Enable `SEO_EVALUATION_PUBLIC_READ_ENABLED=true` only for local UI
+inspection; it defaults to `false` and internal ingestion tokens remain
+server-side.
+
+Product Phase P15 adds a read-only unified evaluation report at
+`/api/evaluation-reports/:evaluationId` and the Expo
+`/evaluation-reports/[id]` detail route. The endpoint accepts an enabled public
+QA, accessibility, or SEO evaluation ID as an anchor, correlates only persisted
+rows from the same scanner run and provenance, and returns safe summary cards
+plus bounded attention items. Each domain remains independently gated; missing
+domains are reported as `not-produced` and disabled domains as
+`public-access-disabled`. The report contains no `scannerRunId`, tokens, raw
+evaluation payloads, or database metadata, never starts a scan, and does not
+add a report table or migration. Existing QA, accessibility, and SEO detail
+pages link to the report, while the report links back to each available detail
+view.
+
+Product Phase P16 adds the read-only unified report history at
+`/api/evaluation-reports` and the Expo `/evaluation-reports` discovery route.
+History groups persisted QA, accessibility, and SEO evaluations by their
+internal scanner run and exposes one deterministic report card per run. The
+API supports bounded cursor pagination and the `source` filter values
+`real-site-smoke-test`, `controlled-fixture`, and `legacy-unknown`; disabled
+domains remain unavailable without leaking private IDs. Reports are aggregate
+projections over the existing evaluation tables, so no report table or
+migration is required. Synthetic `POST /api/scans` records remain separate.
+
+Run the developer-only ReaDirect smoke workflow with:
+
+```powershell
+pnpm real-scan https://readirect.org
+```
+
+This command requires the explicit real-site smoke-test feature flag and the
+authenticated internal ingestion token. It is not used by the public
+`POST /api/scans` route, which remains deterministic and synthetic.
 
 Phase D replaces the API's in-memory repository with PostgreSQL persistence through Drizzle ORM and versioned SQL migrations. Phase E adds the scanner safety boundary: URL policy, DNS/IP classification, redirect validation, passive request policy, and resource limits. Phase F adds a controlled Chromium engine that reuses those checks and returns internal observations. Phase G adds a loopback-only authenticated scanner worker, a fail-closed isolation gate, and an API-side client that is deliberately not used by the public route.
 
@@ -389,3 +448,42 @@ already-loaded controlled page, persists core QA before SEO through authenticate
 internal routes, and creates no public SEO API or mobile UI. It stores nine
 bounded deterministic findings, never computes a score or grade, and preserves
 the zero-new-request/page/navigation invariant. Phase H remains deferred.
+
+To inspect persisted SEO results locally, enable the API read adapter in
+`services/api/.env` and open:
+
+```text
+http://localhost:8082/seo-evaluations
+http://localhost:8082/seo-evaluations/<evaluation-id>
+```
+
+The index supports provenance filters and cursor-based loading. Detail views
+show passed, warning, and not-applicable counts, all nine findings, bounded
+technical evidence, remediation guidance, and gate-aware QA/accessibility
+cross-links. Provenance is persisted with each row; it is never inferred from
+the target URL.
+
+## Run the ReaDirect real-site smoke test
+
+The developer-only real-site smoke test runs one existing Playwright/Chromium
+scan against the exact allowlist `readirect.org` and `www.readirect.org`, then
+persists the existing QA, accessibility, and SEO evaluation snapshots through
+the authenticated internal API:
+
+```powershell
+pnpm real-scan https://readirect.org
+```
+
+Before running it, start PostgreSQL, the API, and install Chromium. Configure
+the same server-side `QA_EVALUATION_INTERNAL_TOKEN` in
+`services/api/.env` and `tools/controlled-evaluations/.env`, and enable the
+development-only API gate:
+
+```env
+REAL_SITE_SMOKE_TEST_ENABLED=true
+```
+
+This command is a ReaDirect-only development smoke test. It is not Phase H,
+does not enable arbitrary public URL scanning, is not production isolation, is
+not connected to `POST /api/scans`, and is not exposed through Expo. Existing
+URL, DNS/IP, request, redirect, browser, and runtime limits remain active.

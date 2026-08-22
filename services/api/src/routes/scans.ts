@@ -50,6 +50,7 @@ function createSyntheticScan(url: string) {
   const completedAt = new Date(createdAt.getTime() + 100);
   return scanResponseSchema.parse({
     id: randomUUID(),
+    provenance: "synthetic",
     url,
     status: "completed",
     score: SYNTHETIC_SCORE,

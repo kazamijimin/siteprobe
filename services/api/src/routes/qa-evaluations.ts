@@ -6,6 +6,7 @@ import {
   controlledQaEvaluationPublicResponseSchema,
   ACCESSIBILITY_EVALUATOR_VERSION,
   AXE_ENGINE_VERSION,
+  SEO_EVALUATOR_VERSION,
   listControlledQaEvaluationsQuerySchema,
   listControlledQaEvaluationsResponseSchema,
   qaEvaluationListCursorPayloadSchema,
@@ -20,6 +21,9 @@ import {
   type QaEvaluationRepository,
 } from "../evaluations/repository.js";
 import type { AccessibilityEvaluationRepository } from "../accessibility-evaluations/repository.js";
+import type { SeoEvaluationRepository } from "../seo-evaluations/repository.js";
+import { isControlledEvaluationUrl } from "../real-site-policy.js";
+import { isControlledProvenanceTargetAllowed, resolveControlledProvenance } from "../evaluations/provenance.js";
 
 type QaRouteOptions = {
   repository: QaEvaluationRepository;
@@ -27,6 +31,9 @@ type QaRouteOptions = {
   publicReadEnabled: boolean;
   accessibilityRepository: AccessibilityEvaluationRepository;
   accessibilityPublicReadEnabled: boolean;
+  realSiteSmokeTestEnabled: boolean;
+  seoRepository: SeoEvaluationRepository;
+  seoPublicReadEnabled: boolean;
 };
 
 function errorEnvelope(code: string, message: string, requestId: string, details?: Array<{ path: string; message: string }>) {
@@ -53,10 +60,11 @@ function authorize(request: { headers: { authorization?: string }; id: string },
   return true;
 }
 
-function projectPublicEvaluation(evaluation: ControlledQaEvaluationResponse, relatedAccessibilityEvaluationId: string | null) {
+function projectPublicEvaluation(evaluation: ControlledQaEvaluationResponse, relatedAccessibilityEvaluationId: string | null, relatedSeoEvaluationId: string | null) {
   const projected = controlledQaEvaluationPublicResponseSchema.safeParse({
     id: evaluation.id,
     source: evaluation.source,
+    provenance: evaluation.provenance,
     schemaVersion: evaluation.schemaVersion,
     evaluatorVersion: evaluation.evaluatorVersion,
     requestedUrl: evaluation.requestedUrl,
@@ -65,6 +73,7 @@ function projectPublicEvaluation(evaluation: ControlledQaEvaluationResponse, rel
     evaluation: evaluation.evaluation,
     createdAt: evaluation.createdAt,
     relatedAccessibilityEvaluationId,
+    relatedSeoEvaluationId,
   });
   if (!projected.success) {
     throw new QaEvaluationPersistenceCorruptionError("Stored QA evaluation failed public contract validation", { cause: projected.error });
@@ -76,6 +85,7 @@ function projectPublicEvaluationListItem(evaluation: ControlledQaEvaluationRespo
   const projected = controlledQaEvaluationListItemSchema.safeParse({
     id: evaluation.id,
     source: evaluation.source,
+    provenance: evaluation.provenance,
     evaluatorVersion: evaluation.evaluatorVersion,
     requestedUrl: evaluation.requestedUrl,
     scannedAt: evaluation.scannedAt,
@@ -112,6 +122,12 @@ export const qaEvaluationRoutes = (options: QaRouteOptions): FastifyPluginAsync 
         request.id,
         parsed.error.issues.map((issue) => ({ path: issue.path.join(".") || "body", message: issue.message })),
       ));
+    }
+    const provenance = resolveControlledProvenance(parsed.data.provenance, parsed.data.requestedUrl);
+    if (!isControlledProvenanceTargetAllowed(provenance, parsed.data.requestedUrl, parsed.data.finalUrl, options.realSiteSmokeTestEnabled) || (options.realSiteSmokeTestEnabled && (!isControlledEvaluationUrl(parsed.data.requestedUrl, true) || !isControlledEvaluationUrl(parsed.data.finalUrl, true)))) {
+      return reply.code(400).send(errorEnvelope("VALIDATION_ERROR", "Evaluation target is not allowed by the controlled developer policy", request.id, [
+        { path: "requestedUrl", message: "Only fixture.invalid URLs or the development ReaDirect allowlist are accepted" },
+      ]));
     }
     try {
       const result = await options.repository.create(parsed.data as ControlledQaEvaluationCreate);
@@ -192,6 +208,7 @@ export const qaEvaluationRoutes = (options: QaRouteOptions): FastifyPluginAsync 
     const evaluation = await options.repository.findById(params.data.id);
     if (!evaluation) return reply.code(404).send(errorEnvelope("NOT_FOUND", "QA evaluation not found", request.id));
     let relatedAccessibilityEvaluationId: string | null = null;
+    let relatedSeoEvaluationId: string | null = null;
     if (options.accessibilityPublicReadEnabled) {
       const related = await options.accessibilityRepository.findByScannerRun(
         evaluation.scannerRunId,
@@ -200,6 +217,10 @@ export const qaEvaluationRoutes = (options: QaRouteOptions): FastifyPluginAsync 
       );
       relatedAccessibilityEvaluationId = related?.id ?? null;
     }
-    return reply.code(200).send(projectPublicEvaluation(evaluation, relatedAccessibilityEvaluationId));
+    if (options.seoPublicReadEnabled) {
+      const related = await options.seoRepository.findByScannerRun(evaluation.scannerRunId, SEO_EVALUATOR_VERSION);
+      relatedSeoEvaluationId = related?.id ?? null;
+    }
+    return reply.code(200).send(projectPublicEvaluation(evaluation, relatedAccessibilityEvaluationId, relatedSeoEvaluationId));
   });
 };
