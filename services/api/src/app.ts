@@ -6,6 +6,7 @@ import { scanRoutes } from "./routes/scans.js";
 import { qaEvaluationRoutes } from "./routes/qa-evaluations.js";
 import { accessibilityEvaluationRoutes } from "./routes/accessibility-evaluations.js";
 import { seoEvaluationRoutes } from "./routes/seo-evaluations.js";
+import { evaluationReportRoutes } from "./routes/evaluation-reports.js";
 import { InMemoryScanRepository, type ScanRepository } from "./repository.js";
 import type { ScannerClient } from "./scanner/client.js";
 import { InMemoryQaEvaluationRepository, type QaEvaluationRepository } from "./evaluations/repository.js";
@@ -135,6 +136,14 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     qaPublicReadEnabled: options.qaEvaluationPublicReadEnabled ?? false,
     accessibilityRepository: accessibilityEvaluationRepository,
     accessibilityPublicReadEnabled: options.accessibilityEvaluationPublicReadEnabled ?? false,
+  }));
+  app.register(evaluationReportRoutes({
+    qaRepository: qaEvaluationRepository,
+    qaPublicReadEnabled: options.qaEvaluationPublicReadEnabled ?? false,
+    accessibilityRepository: accessibilityEvaluationRepository,
+    accessibilityPublicReadEnabled: options.accessibilityEvaluationPublicReadEnabled ?? false,
+    seoRepository: seoEvaluationRepository,
+    seoPublicReadEnabled: options.seoEvaluationPublicReadEnabled ?? false,
   }));
   return app;
 }

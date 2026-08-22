@@ -41,6 +41,26 @@ export {
   scannerSecurityFailureCodeSchema,
   scannerValidationRequestSchema,
 } from "./scanner.js";
+export {
+  EVALUATION_REPORT_SCHEMA_VERSION,
+  evaluationReportSchemaVersionSchema,
+  evaluationReportUnavailableReasonSchema,
+  evaluationReportQaSchema,
+  evaluationReportAccessibilitySchema,
+  evaluationReportSeoSchema,
+  evaluationReportAttentionSourceSchema,
+  evaluationReportAttentionSeveritySchema,
+  evaluationReportAttentionItemSchema,
+  evaluationReportPublicResponseSchema,
+} from "./evaluation-report.js";
+export type {
+  EvaluationReportUnavailableReason,
+  EvaluationReportQa,
+  EvaluationReportAccessibility,
+  EvaluationReportSeo,
+  EvaluationReportAttentionItem,
+  EvaluationReportPublicResponse,
+} from "./evaluation-report.js";
 export type { ScannerFailureAttribution } from "./scanner.js";
 export {
   QA_EVALUATOR_VERSION,

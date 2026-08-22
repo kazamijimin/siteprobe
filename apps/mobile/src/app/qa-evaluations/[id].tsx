@@ -265,6 +265,14 @@ export default function QaEvaluationDetailScreen() {
           ) : null}
 
           <Pressable
+            accessibilityLabel="View Unified Report"
+            accessibilityRole="button"
+            onPress={() => router.push({ pathname: '/evaluation-reports/[id]', params: { id: evaluation.id } })}
+            style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}>
+            <Text style={styles.secondaryButtonText}>View Unified Report</Text>
+          </Pressable>
+
+          <Pressable
             accessibilityLabel="Back to Home"
             accessibilityRole="button"
             onPress={goHome}
