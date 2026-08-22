@@ -41,15 +41,15 @@ function isCorrelated(anchor: Anchor["evaluation"], candidate: Anchor["evaluatio
 
 function seoRuleTitle(ruleId: string): string {
   const titles: Record<string, string> = {
-    SEO_TITLE_PRESENT: "Title present",
-    SEO_TITLE_LENGTH: "Title length",
-    SEO_META_DESCRIPTION_PRESENT: "Meta description present",
-    SEO_META_DESCRIPTION_LENGTH: "Meta description length",
-    SEO_CANONICAL_PRESENT: "Canonical URL present",
-    SEO_HTML_LANG_PRESENT: "HTML language present",
-    SEO_VIEWPORT_PRESENT: "Viewport metadata present",
-    SEO_SINGLE_H1: "Single H1 heading",
-    SEO_IMAGES_HAVE_ALT: "Images have alt text",
+    SEO_TITLE_PRESENT: "Title missing",
+    SEO_TITLE_LENGTH: "Title length needs attention",
+    SEO_META_DESCRIPTION_PRESENT: "Meta description missing",
+    SEO_META_DESCRIPTION_LENGTH: "Meta description length needs attention",
+    SEO_CANONICAL_PRESENT: "Canonical link missing",
+    SEO_HTML_LANG_PRESENT: "HTML language missing",
+    SEO_VIEWPORT_PRESENT: "Viewport metadata missing",
+    SEO_SINGLE_H1: "H1 heading structure needs attention",
+    SEO_IMAGES_HAVE_ALT: "Image alt text missing",
   };
   return titles[ruleId] ?? ruleId;
 }

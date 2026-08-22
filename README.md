@@ -2,8 +2,9 @@
 
 SiteProbe is a mobile-first website QA platform. The long-term product will submit website targets from an Expo application to a backend that runs isolated browser checks.
 
-## Current status: Product Phase P15
+## Current status: Product Phase P16
 
+- Product Phase P16 - Unified report history and discovery
 - Product Phase P15 - Unified evaluation report across QA, accessibility, and SEO
 
 - Product Phase P14 — Public SEO evaluation read experience
@@ -117,6 +118,16 @@ evaluation payloads, or database metadata, never starts a scan, and does not
 add a report table or migration. Existing QA, accessibility, and SEO detail
 pages link to the report, while the report links back to each available detail
 view.
+
+Product Phase P16 adds the read-only unified report history at
+`/api/evaluation-reports` and the Expo `/evaluation-reports` discovery route.
+History groups persisted QA, accessibility, and SEO evaluations by their
+internal scanner run and exposes one deterministic report card per run. The
+API supports bounded cursor pagination and the `source` filter values
+`real-site-smoke-test`, `controlled-fixture`, and `legacy-unknown`; disabled
+domains remain unavailable without leaking private IDs. Reports are aggregate
+projections over the existing evaluation tables, so no report table or
+migration is required. Synthetic `POST /api/scans` records remain separate.
 
 Run the developer-only ReaDirect smoke workflow with:
 

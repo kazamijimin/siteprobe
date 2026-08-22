@@ -5,6 +5,7 @@ import { buildApp } from "../app.js";
 import type { AccessibilityEvaluationRepository } from "../accessibility-evaluations/repository.js";
 import type { QaEvaluationRepository } from "../evaluations/repository.js";
 import type { SeoEvaluationRepository } from "../seo-evaluations/repository.js";
+import type { EvaluationReportHistoryRepository } from "../evaluation-reports/history.js";
 
 const scannerRunId = randomUUID();
 const requestedUrl = "http://fixture.invalid/";
@@ -94,6 +95,39 @@ describe("unified evaluation report route", () => {
     const report = await app.inject({ method: "GET", url: `/api/evaluation-reports/${qa.id}` });
     expect(report.statusCode).toBe(200);
     expect(report.json().seo.available).toBe(false);
+    await app.close();
+  });
+
+  it("lists one bounded report per run with server-side source filtering and cursors", async () => {
+    const repos = repositories({ qa, accessibility, seo });
+    const history = {
+      list: vi.fn(async (options: { provenance?: string; before?: { createdAt: string; id: string }; limit: number }) => ({
+        reports: [{
+          schemaVersion: 1,
+          anchorEvaluationId: qa.id,
+          provenance,
+          requestedUrl,
+          finalUrl,
+          scannedAt,
+          createdAt: scannedAt,
+          qa: { available: true, summary: qa.evaluation.summary },
+          accessibility: { available: true, summary: accessibility.evaluation.summary },
+          seo: { available: true, summary: seo.evaluation.summary },
+        }],
+        nextPosition: options.before ? null : { createdAt: scannedAt, id: qa.id },
+      })),
+    } as EvaluationReportHistoryRepository;
+    const app = buildApp({ logger: false, qaEvaluationRepository: repos.qaRepository, accessibilityEvaluationRepository: repos.accessibilityRepository, seoEvaluationRepository: repos.seoRepository, evaluationReportHistoryRepository: history, qaEvaluationPublicReadEnabled: true, accessibilityEvaluationPublicReadEnabled: true, seoEvaluationPublicReadEnabled: true });
+    const first = await app.inject({ method: "GET", url: "/api/evaluation-reports?source=real-site-smoke-test&limit=1" });
+    expect(first.statusCode).toBe(200);
+    expect(first.json().reports).toHaveLength(1);
+    expect(first.json().nextCursor).toEqual(expect.any(String));
+    expect(history.list).toHaveBeenCalledWith(expect.objectContaining({ provenance: "real-site-smoke-test", limit: 1, before: undefined }));
+    const next = await app.inject({ method: "GET", url: `/api/evaluation-reports?cursor=${first.json().nextCursor}` });
+    expect(next.statusCode).toBe(200);
+    expect(history.list).toHaveBeenLastCalledWith(expect.objectContaining({ before: { createdAt: scannedAt, id: qa.id } }));
+    expect((await app.inject({ method: "GET", url: "/api/evaluation-reports?source=unknown" })).statusCode).toBe(400);
+    expect((await app.inject({ method: "GET", url: "/api/evaluation-reports?cursor=bad.cursor" })).statusCode).toBe(400);
     await app.close();
   });
 });

@@ -4,6 +4,7 @@ import { usePathname, useRouter } from 'expo-router';
 const destinations = [
   { label: 'Home', path: '/' },
   { label: 'Scans', path: '/scans' },
+  { label: 'Reports', path: '/evaluation-reports' },
   { label: 'QA', path: '/qa-evaluations' },
   { label: 'Accessibility', path: '/accessibility-evaluations' },
   { label: 'SEO', path: '/seo-evaluations' },

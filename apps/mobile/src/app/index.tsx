@@ -111,6 +111,15 @@ export default function HomeScreen() {
           </Pressable>
 
           <Pressable
+            accessibilityLabel="View Unified Reports"
+            accessibilityRole="button"
+            onPress={() => router.push('./evaluation-reports')}
+            style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}>
+            <Text style={styles.secondaryButtonText}>View Unified Reports</Text>
+            <Text style={styles.secondaryButtonHint}>View combined QA, Accessibility, and SEO results from one evaluation run.</Text>
+          </Pressable>
+
+          <Pressable
             accessibilityLabel="View Controlled QA Evaluations"
             accessibilityRole="button"
             onPress={() => router.push('./qa-evaluations')}

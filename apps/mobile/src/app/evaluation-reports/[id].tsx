@@ -26,7 +26,7 @@ function attentionLabel(item: EvaluationReportAttentionItem) {
 }
 
 function AttentionItem({ item }: { item: EvaluationReportAttentionItem }) {
-  return <View style={styles.attentionItem}><View style={styles.attentionHeader}><Text style={styles.attentionSource}>{item.source === 'qa' ? 'Core QA' : item.source === 'accessibility' ? 'Accessibility' : 'SEO'}</Text><Text style={[styles.attentionSeverity, item.severity === 'critical' || item.severity === 'serious' ? styles.dangerText : item.severity === 'needsReview' ? styles.reviewText : styles.warningText]}>{attentionLabel(item)}</Text></View><Text style={styles.attentionTitle}>{item.title}</Text><Text style={styles.attentionDescription}>{item.description}</Text>{item.affectedNodeCount !== undefined ? <Text style={styles.attentionMeta}>Affected nodes: {item.affectedNodeCount}</Text> : null}{item.remediation ? <Text style={styles.attentionRemediation}>Next step: {item.remediation}</Text> : null}</View>;
+  return <View style={styles.attentionItem}><View style={styles.attentionHeader}><Text style={styles.attentionSource}>{item.source === 'qa' ? 'Core QA' : item.source === 'accessibility' ? 'Accessibility' : 'SEO'}</Text><Text style={[styles.attentionSeverity, item.severity === 'critical' || item.severity === 'serious' ? styles.dangerText : item.severity === 'needsReview' ? styles.reviewText : styles.warningText]}>{attentionLabel(item)}</Text></View><Text style={styles.attentionTitle}>{item.title}</Text><Text style={styles.attentionDescription}>{item.description}</Text>{item.remediation ? <Text style={styles.attentionRemediation}>Next step: {item.remediation}</Text> : null}</View>;
 }
 
 function StateScreen({ heading, message, onBack, onRetry }: { heading: string; message?: string; onBack: () => void; onRetry?: () => void }) {
@@ -70,7 +70,6 @@ export default function EvaluationReportDetailScreen() {
     <Text accessibilityRole="header" style={styles.sectionTitle}>Issues Requiring Attention</Text>
     {report.attentionItems.length ? report.attentionItems.map((item, index) => <AttentionItem item={item} key={`${item.source}-${item.ruleId}-${index}`} />) : <View style={styles.sectionCard}><Text style={styles.message}>No available evaluation reported an issue requiring attention.</Text></View>}
     <Text style={styles.disclaimer}>Automated accessibility checks are not equivalent to full WCAG conformance testing.</Text>
-    <Pressable accessibilityRole="button" onPress={goHome} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}><Text style={styles.secondaryButtonText}>Back to Home</Text></Pressable>
   </View></ScrollView></View>;
 }
 

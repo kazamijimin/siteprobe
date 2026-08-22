@@ -7,6 +7,7 @@ import { qaEvaluationRoutes } from "./routes/qa-evaluations.js";
 import { accessibilityEvaluationRoutes } from "./routes/accessibility-evaluations.js";
 import { seoEvaluationRoutes } from "./routes/seo-evaluations.js";
 import { evaluationReportRoutes } from "./routes/evaluation-reports.js";
+import { InMemoryEvaluationReportHistoryRepository, type EvaluationReportHistoryRepository } from "./evaluation-reports/history.js";
 import { InMemoryScanRepository, type ScanRepository } from "./repository.js";
 import type { ScannerClient } from "./scanner/client.js";
 import { InMemoryQaEvaluationRepository, type QaEvaluationRepository } from "./evaluations/repository.js";
@@ -44,6 +45,7 @@ export type BuildAppOptions = {
   realSiteSmokeTestEnabled?: boolean;
   seoEvaluationRepository?: SeoEvaluationRepository;
   seoEvaluationPublicReadEnabled?: boolean;
+  evaluationReportHistoryRepository?: EvaluationReportHistoryRepository;
 };
 
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
@@ -64,6 +66,14 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const qaEvaluationRepository = options.qaEvaluationRepository ?? new InMemoryQaEvaluationRepository();
   const accessibilityEvaluationRepository = options.accessibilityEvaluationRepository ?? new InMemoryAccessibilityEvaluationRepository();
   const seoEvaluationRepository = options.seoEvaluationRepository ?? new InMemorySeoEvaluationRepository();
+  const evaluationReportHistoryRepository = options.evaluationReportHistoryRepository ?? new InMemoryEvaluationReportHistoryRepository({
+    qaRepository: qaEvaluationRepository,
+    qaPublicReadEnabled: options.qaEvaluationPublicReadEnabled ?? false,
+    accessibilityRepository: accessibilityEvaluationRepository,
+    accessibilityPublicReadEnabled: options.accessibilityEvaluationPublicReadEnabled ?? false,
+    seoRepository: seoEvaluationRepository,
+    seoPublicReadEnabled: options.seoEvaluationPublicReadEnabled ?? false,
+  });
 
   app.setErrorHandler((error, request, reply) => {
     const apiError = error as { code?: string; validation?: unknown };
@@ -144,6 +154,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     accessibilityPublicReadEnabled: options.accessibilityEvaluationPublicReadEnabled ?? false,
     seoRepository: seoEvaluationRepository,
     seoPublicReadEnabled: options.seoEvaluationPublicReadEnabled ?? false,
+    historyRepository: evaluationReportHistoryRepository,
   }));
   return app;
 }

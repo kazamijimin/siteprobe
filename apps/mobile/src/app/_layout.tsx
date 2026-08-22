@@ -7,6 +7,7 @@ export default function RootLayout() {
       <Stack.Screen name="index" />
       <Stack.Screen name="scans/index" options={{ title: 'Scan History' }} />
       <Stack.Screen name="scans/[id]" options={{ title: 'Scan Result' }} />
+      <Stack.Screen name="evaluation-reports/index" options={{ title: 'Unified Reports' }} />
       <Stack.Screen name="qa-evaluations/index" options={{ title: 'Controlled QA Evaluations' }} />
       <Stack.Screen name="qa-evaluations/[id]" options={{ title: 'Controlled QA Evaluation' }} />
       <Stack.Screen name="accessibility-evaluations/index" options={{ title: 'Controlled Accessibility Evaluations' }} />
